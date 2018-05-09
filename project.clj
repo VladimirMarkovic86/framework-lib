@@ -1,6 +1,6 @@
 (defproject org.vladimir/framework-lib "0.1.0"
   :description    "Framework library"
-  :url            "http://gitlab:1610/"
+  :url            "http://gitlab:1610/VladimirMarkovic86/framework-lib"
   :license        {:name "Eclipse Public License"
                    :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies   [[org.clojure/clojure    "1.9.0"]
