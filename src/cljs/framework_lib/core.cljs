@@ -35,350 +35,339 @@
 
 (def field-type-image "image")
 
-(def anim-time 100)
-
-(defn- th-td-attrs
- ""
- [content
-  attrs]
- (let [title (:title attrs)
-       style (:style attrs)
-       title (or title content)
-       default-style (conj
-                      {:width "auto"
-                       :white-space "nowrap"
-                       :text-align "center"
-                       :text-overflow "ellipsis"
-                       :overflow "hidden"
-                       :padding "0 5px"}
-                      style)]
-  {:style default-style
-   :title title}))
+(def default-th-td-style
+ {:width "auto"
+  :white-space "nowrap"
+  :text-align "center"
+  :text-overflow "ellipsis"
+  :overflow "hidden"
+  :padding "0 5px"})
 
 (defn- generate-ths
-  "Generate th and append style for that th and td column"
-  [columns-styles
-   th-vector]
-  (let [th-index (count @th-vector)]
-   (if (< th-index (count columns-styles))
-    (let [column-style (columns-styles th-index)
-          content (:content column-style)
-          th-attrs (:th column-style)
-          header-style (th-td-attrs content
-                                    th-attrs)
-          attrs (:attrs column-style)]
-     (swap! th-vector
-            conj
-            (th
-                 (div
-                      content
-                      header-style)
-                 attrs))
-     (recur columns-styles
-            th-vector))
-    @th-vector))
-  )
+ "Generate th and append style for that th and td column"
+ [columns
+  actions-columns]
+ (let [ths (atom [])
+       projection (:projection columns)
+       style (:style columns)
+       actions (count actions-columns)]
+  (doseq [column projection]
+   (let [column-style (column style)
+         content (:content column-style)
+         th-column (:th column-style)
+         th-style (conj
+                    default-th-td-style
+                    (:style th-column))
+         th-attrs (dissoc th-column :style)
+         th-attrs (when (not (contains? th-attrs :title))
+                   (assoc th-attrs :title content))]
+    (swap!
+      ths
+      conj
+      (th
+       (div content
+            {:style th-style})
+       th-attrs))
+    ))
+  (when (< 0 actions)
+   (swap!
+      ths
+      conj
+      (th
+       (div "Actions")
+       {:colspan actions}))
+   )
+  @ths))
 
 (defn- handle-paging
  "Handle click event on pagination link"
  [{conf :conf
-   {table-conf :table-conf
+   {query :query
     table-fn :table-fn} :conf
    pagination :pagination
    page :page}
   sl-node]
  (when (= page "first")
   (table-fn
-   (assoc
-     conf
-     :table-conf (assoc table-conf
-                        :current-page 0)))
+   (update-in
+    conf
+    [:query]
+    assoc
+    :current-page 0))
   )
  (when (= page "previous")
   (table-fn
-   (assoc
-     conf
-     :table-conf (assoc
-                   table-conf
-                   :current-page (dec (:current-page table-conf))
-                  ))
-   )
+   (update-in
+    conf
+    [:query]
+    assoc
+    :current-page (dec (:current-page query))
+    ))
   )
  (when (= page "next")
   (table-fn
-   (assoc
-     conf
-     :table-conf (assoc
-                   table-conf
-                   :current-page (inc (:current-page table-conf))
-                  ))
-   )
+   (update-in
+    conf
+    [:query]
+    assoc
+    :current-page (inc (:current-page query))
+    ))
   )
  (when (= page "last")
   (table-fn
-   (assoc
-     conf
-     :table-conf (assoc
-                   table-conf
-                   :current-page (dec (utils/round-up
-                                       (:total-row-count pagination)
-                                       (:rows pagination))
-                                  ))
-    ))
-  )
+   (update-in
+    conf
+    [:query]
+    assoc
+    :current-page
+    (dec
+     (utils/round-up
+      (:total-row-count pagination)
+      (:rows pagination))
+     ))
+   ))
  (when (and (not= page "first")
             (not= page "previous")
             (not= page "next")
             (not= page "last"))
   (table-fn
-   (assoc
-     conf
-     :table-conf (assoc
-                   table-conf
-                   :current-page (dec (js/parseInt page))
-                  ))
-      ))
-  )
+   (update-in
+    conf
+    [:query]
+    assoc
+    :current-page (dec (js/parseInt page))
+    ))
+  ))
 
-(defn generate-pagination
+(defn- generate-pagination
   "Generate pagination row in thead"
   [current-page
    number-of-pages
-   link-first
-   link-previous
-   link-next
-   link-last
+   show-link
    assoc-page]
   (let [page-vector (atom [])]
-   (swap! page-vector conj (if link-first
-                            (div
-                                 (a
-                                      "first"
-                                      {:page "first"}
-                                      (assoc-page "first")))
-                            (div))
-    )
-   (swap! page-vector conj (if link-previous
-                            (div
-                                 (a
-                                      "previous"
-                                      {:page "previous"}
-                                      (assoc-page "previous"))
-                                  )
-                            (div))
-    )
-   (if (and (= current-page (dec number-of-pages))
-            (< -1 (dec (dec current-page))
-             ))
+   (swap!
+     page-vector
+     (fn [atom-val seq] (apply conj atom-val seq))
+     (if (or (= show-link
+                2)
+             (= show-link
+                3))
+      [(div
+        (a "first"
+           {:page "first"}
+           (assoc-page "first")))
+       (div
+        (a "previous"
+           {:page "previous"}
+           (assoc-page "previous"))
+        )]
+      [(div) (div)]))
+   (when (and (= current-page (dec number-of-pages))
+              (< -1 (dec (dec current-page))
+               ))
     (swap! page-vector conj (div
-                                 (a
-                                      (dec current-page)
-                                      {:page (dec current-page)}
-                                      (assoc-page (dec current-page))
-                                  ))
-     )
-    nil)
-   (if (< -1 (dec current-page))
+                              (a (dec current-page)
+                                 {:page (dec current-page)}
+                                 (assoc-page (dec current-page))
+                               ))
+     ))
+   (when (< -1 (dec current-page))
     (swap! page-vector conj (div
-                                 (a
-                                      current-page
-                                      {:page current-page}
-                                      (assoc-page current-page))
+                             (a current-page
+                                {:page current-page}
+                                (assoc-page current-page))
                              ))
-    nil)
-   (swap! page-vector conj (div
-                                (inc current-page)
+    )
+   (swap! page-vector conj (div (inc current-page)
                                 {:class "current-page"})
     )
-   (if (< (inc current-page) number-of-pages)
+   (when (< (inc current-page) number-of-pages)
     (swap! page-vector conj (div
-                                 (a
-                                      (inc (inc current-page))
-                                      {:page (inc (inc current-page))}
-                                      (assoc-page (inc (inc current-page))
-                                       ))
+                             (a
+                                  (inc (inc current-page))
+                                  {:page (inc (inc current-page))}
+                                  (assoc-page (inc (inc current-page))
+                                   ))
                              ))
-    nil)
-   (if (and (= current-page 0)
-            (< (inc (inc current-page)) number-of-pages))
+    )
+   (when (and (= current-page 0)
+              (< (inc (inc current-page)) number-of-pages))
     (swap! page-vector conj (div
-                                 (a
-                                      (inc (inc (inc current-page))
-                                       )
-                                      {:page (inc (inc (inc current-page))
-                                              )}
-                                      (assoc-page (inc (inc (inc current-page))
-                                                   ))
-                                  ))
-     )
-    nil)
-   (swap! page-vector conj (if link-next
-                            (div
-                                 (a
-                                      "next"
-                                      {:page "next"}
-                                      (assoc-page "next"))
-                             )
-                            (div))
-    )
-   (swap! page-vector conj (if link-last
-                            (div
-                                 (a
-                                      "last"
-                                      {:page "last"}
-                                      (assoc-page "last"))
-                             )
-                            (div))
-    )
+                             (a (inc (inc (inc current-page))
+                                 )
+                                {:page (inc (inc (inc current-page))
+                                        )}
+                                (assoc-page (inc (inc (inc current-page))
+                                             ))
+                              ))
+     ))
+   (swap!
+     page-vector
+     (fn [atom-val seq] (apply conj atom-val seq))
+     (if (or (= show-link
+                1)
+             (= show-link
+                3))
+      [(div
+        (a "next"
+           {:page "next"}
+           (assoc-page "next"))
+        )
+       (div
+        (a "last"
+           {:page "last"}
+           (assoc-page "last"))
+        )]
+      [(div) (div)]))
    @page-vector))
 
 (defn- generate-thead
   "Generate thead for table"
-  [columns-styles
-   table-class
-   actions
+  [table-class
+   columns
+   actions-columns
    pagination
    conf]
-  (thead
-       [(tr
-             (if-not (empty? actions)
-              (generate-ths (conj columns-styles
-                                  {:content    "Actions"
-                                   :attrs {:colspan (count actions)}})
-                            (atom []))
-              (generate-ths columns-styles
-                            (atom [])))
-         )
-        (tr
-             (th
-                  (div
-                       (let [current-page (:current-page pagination)
-                             rows (:rows pagination)
-                             total-row-count (:total-row-count pagination)
-                             first-page-index 0
-                             second-page-index 1
-                             number-of-pages (utils/round-up total-row-count rows)
-                             last-page-index (dec number-of-pages)
-                             one-before-last (dec last-page-index)
-                             assoc-page (fn [page]
-                                         {:onclick
-                                          {:evt-fn handle-paging
-                                           :evt-p {:conf conf
-                                                   :pagination pagination
-                                                   :page page}}}
-                                         )]
-                        (if (< number-of-pages 4)
-                         (generate-pagination current-page
-                                              number-of-pages
-                                              false
-                                              false
-                                              false
-                                              false
-                                              assoc-page)
-                         (do (if (= current-page
-                                    first-page-index)
-                              (generate-pagination current-page
-                                                   number-of-pages
-                                                   false
-                                                   false
-                                                   true
-                                                   true
-                                                   assoc-page)
-                              (if (= current-page
-                                     last-page-index)
-                               (generate-pagination current-page
-                                                    number-of-pages
-                                                    true
-                                                    true
-                                                    false
-                                                    false
-                                                    assoc-page)
-                               (generate-pagination current-page
-                                                    number-of-pages
-                                                    true
-                                                    true
-                                                    true
-                                                    true
-                                                    assoc-page))
-                              ))
-                         ))
-                       {:class "pagination"})
-                  {:colspan (+ (count actions)
-                               (count columns-styles))})
-         )]))
-
-(defn action-link
- ""
- [[content
-   evt-fn
-   evt-p
-   ent-id]]
- (a
-      content
-      {:title content}
-      {:onclick {:evt-fn evt-fn
-                 :evt-p (assoc evt-p
-                               :ent-id ent-id)}}
-  ))
-
-(defn- generate-tr
-  "Generate tr elements for table body"
-  [columns-styles
-   data-vectors
-   actions]
-  (let [trs (atom [])]
-   (doseq [data-vector data-vectors]
-    (let [row-id (first data-vector)
-          data-vector (utils/remove-index-from-vector
-                       data-vector
-                       0)]
-     (swap! trs conj (tr
-                          (let [tds (atom [])
-                                td-index (atom 0)]
-                           (doseq [data data-vector]
-                            (let [column-style (get columns-styles @td-index)
-                                  td-attrs (:td column-style)
-                                  td (th-td-attrs data
-                                                  td-attrs)]
-                             (swap! tds conj (td
-                                                  (div
-                                                       data
-                                                       td))
-                              )
-                             (swap! td-index inc))
-                            )
-                           (doseq [action actions]
-                            (swap! tds conj (td
-                                                 (div
-                                                      (action-link (conj action
-                                                                         row-id))
-                                                  ))
-                             ))
-                           @tds))
-      ))
-    )
-   @trs))
+  (thead [(tr (generate-ths columns
+                            actions-columns))
+          (tr
+           (th
+            (div
+             (let [current-page (:current-page pagination)
+                   rows (:rows pagination)
+                   total-row-count (:total-row-count pagination)
+                   first-page-index 0
+                   second-page-index 1
+                   number-of-pages (utils/round-up total-row-count rows)
+                   last-page-index (dec number-of-pages)
+                   one-before-last (dec last-page-index)
+                   assoc-page (fn [page]
+                               {:onclick
+                                {:evt-fn handle-paging
+                                 :evt-p {:conf conf
+                                         :pagination pagination
+                                         :page page}}})
+                   condition-i (< number-of-pages 4)
+                   condition-ii (= current-page
+                                   first-page-index)
+                   condition-iii (= current-page
+                                    last-page-index)
+                   pagination-row (atom nil)]
+              (when condition-i
+               (reset!
+                 pagination-row
+                 (generate-pagination
+                   current-page
+                   number-of-pages
+                   0 ; bez prikaza
+                   assoc-page))
+               )
+              (when (and (not condition-i)
+                         condition-ii)
+               (reset!
+                 pagination-row
+                 (generate-pagination
+                   current-page
+                   number-of-pages
+                   1 ; zadnja dva se prikazuju
+                   assoc-page))
+               )
+              (when (and (not condition-i)
+                         (not condition-ii)
+                         condition-iii)
+               (reset!
+                 pagination-row
+                 (generate-pagination
+                   current-page
+                   number-of-pages
+                   2 ; prva dva se prikazuju
+                   assoc-page))
+               )
+              (when (and (not condition-i)
+                         (not condition-ii)
+                         (not condition-iii))
+               (reset!
+                 pagination-row
+                 (generate-pagination
+                   current-page
+                   number-of-pages
+                   3 ; svi se prikazuju
+                   assoc-page))
+               )
+              @pagination-row)
+             {:class "pagination"})
+             {:colspan (+ (count actions-columns)
+                          (count (:projection columns)))})
+           )]))
 
 (defn- generate-tbody
  "Generate tbody for table"
- [columns-styles
-  data-vectors
+ [entities
+  columns
   actions]
  (tbody
-      (generate-tr columns-styles
-                   data-vectors
-                   actions))
+  (let [trs (atom [])
+        projection (:projection columns)
+        style (:style columns)]
+   (doseq [entity entities]
+    (let [row-id (first entity)
+          entity (utils/remove-index-from-vector
+                   entity
+                   0)]
+     (swap!
+       trs
+       conj
+       (tr
+        (let [tds (atom [])]
+         (doseq [index (range (count projection))]         
+          (let [column (get projection index)
+                column-style (column style)
+                content (get entity index)
+                td-column (:td column-style)
+                td-style (conj
+                           default-th-td-style
+                           (:style td-column))
+                td-attrs (dissoc td-column :style)
+                td-attrs (assoc td-attrs :title content)]
+           (swap!
+             tds
+             conj
+             (td
+              (div content
+                   {:style td-style})
+              td-attrs))
+           ))
+         (doseq [[content
+                  evt-fn
+                  evt-p] actions]
+          (swap!
+            tds
+            conj
+            (td
+              (div 
+                (a content
+                   {:title content}
+                   {:onclick {:evt-fn evt-fn
+                              :evt-p (assoc evt-p
+                                            :ent-id row-id)}}))
+             ))
+          )
+         @tds))
+      ))
+    )
+   @trs))
  )
 
 (defn- input-field
   "Render input field"
   [data-type
    data
-   label
+   label-txt
    step
    disabled]
   (let [id (str "txt"
-                 label)
+                 label-txt)
         attrs {:id id
                :name id
                :type data-type
@@ -392,21 +381,20 @@
                (assoc attrs
                       :disabled "disabled")
                attrs)]
-   (input
-        ""
-        attrs))
+   (input ""
+          attrs))
  )
 
 (defn- radio-field
   "Render radio field with different options"
   [data
-   label
+   label-txt
    options
    disabled]
   (let [rs (atom [])]
    (doseq [option options]
     (let [r-name (str "r"
-                      label)
+                      label-txt)
           id (str r-name
                   (md/replace-all option
                                   " "
@@ -427,13 +415,10 @@
           l-attrs {:id (str "lbl"
                             id)
                    :for id}]
-     (swap! rs conj (div
-                         [(input
-                               ""
-                               r-attrs)
-                          (label
-                               option
-                               l-attrs)]))
+     (swap! rs conj (div [(input ""
+                                 r-attrs)
+                          (label option
+                                 l-attrs)]))
      ))
    @rs))
 
@@ -465,13 +450,13 @@
 (defn- checkbox-field
   "Render checkbox fields with different options"
   [selected-cbs
-   label
+   label-txt
    options
    disabled]
   (let [cbs (atom [])]
    (doseq [option options]
     (let [cb-name (str "cb"
-                       label)
+                       label-txt)
           id (str cb-name
                   (md/replace-all option
                                   " "
@@ -491,23 +476,20 @@
           l-attrs {:id (str "lbl"
                             id)
                    :for id}]
-     (swap! cbs conj (div
-                          [(input
-                                ""
-                                cb-attrs)
-                           (label
-                                option
-                                l-attrs)]))
+     (swap! cbs conj (div [(input ""
+                                  cb-attrs)
+                           (label option
+                                  l-attrs)]))
      ))
    @cbs))
 
 (defn- textarea-field
   "Render textarea field"
   [data
-   label
+   label-txt
    disabled]
   (let [id (str "ta"
-                label)
+                label-txt)
         attrs {:id id
                :name id
                :required "required"}
@@ -515,18 +497,17 @@
                (assoc attrs
                       :disabled "disabled")
                attrs)]
-   (textarea
-        data
-        attrs))
+   (textarea data
+             attrs))
  )
 
 (defn- select-field
   "Render select field"
   [option-vector
-   label
+   label-txt
    disabled]
   (let [id (str "sl"
-                label)
+                label-txt)
         sl-attrs {:id id
                   :name id
                   :required "required"}
@@ -534,15 +515,13 @@
                   (assoc sl-attrs
                          :disabled "disabled")
                   sl-attrs)]
-   (select
-        (let [options (atom [])]
-         (doseq [[opt-val
-                  opt-lbl] option-vector]
-          (swap! options conj (option
-                                   opt-lbl
-                                   {:value opt-val}))
-          )
-         @options)
+   (select (let [options (atom [])]
+            (doseq [[opt-val
+                     opt-lbl] option-vector]
+             (swap! options conj (option opt-lbl
+                                         {:value opt-val}))
+             )
+            @options)
         sl-attrs))
  )
 
@@ -559,27 +538,24 @@
                 (fn [e]
                  (aset aimg "src" (aget (aget e "target") "result"))))
                   img))
-       dataURL (.readAsDataURL fileReader file)
-       ]))
+       dataURL (.readAsDataURL fileReader file)]))
 
 (defn- image-field
  ""
  [data
-  label
+  label-txt
   disabled]
  [(div
-       (img
-            ""
-            {:id (str "img"
-                      label)
-             :name (str "img"
-                        label)
-             :style {:width "100px"
-                     :height "100px"}
-             :src data}))
-  (div
-       (let [id (str "txt"
-                     label)
+   (img ""
+        {:id (str "img"
+                  label-txt)
+         :name (str "img"
+                    label-txt)
+         :style {:width "100px"
+                 :height "100px"}
+         :src data}))
+  (div (let [id (str "txt"
+                     label-txt)
             attrs {:id id
                    :name id
                    :type "file"
@@ -588,79 +564,75 @@
                    (assoc attrs
                           :disabled "disabled")
                    attrs)]
-       (input
-            ""
-            attrs
-            {:onchange {:evt-fn render-img}}))
-       )
-  ]
- )
+        (input ""
+               attrs
+               {:onchange {:evt-fn render-img}}))
+   )])
 
-(defn insert-update-entity-success
+(defn- insert-update-entity-success
   "After successful entity insert or update display table again"
   [xhr
    {conf :conf
     {table-fn :table-fn} :conf}]
   (table-fn conf))
 
-(defn insert-update-entity
+(defn- insert-update-entity
  "Insert or update entity"
  [conf
   sl-node]
- (let [action               (:action conf)
-       entity-conf          (:entity-conf conf)
-       entity-type          (:entity-type entity-conf)
-       entity-fields        (:entity-fields entity-conf)
-       entity-keys          (vec (keys entity-fields))
-       table-node           (md/query-selector ".entity")
-       request-body         {:entity-type  entity-type}
-       input-element-id     (md/query-selector-on-element table-node
+ (let [action (:action conf)
+       form-conf (:form-conf conf)
+       entity-type (:type form-conf)
+       fields (:fields form-conf)
+       entity-keys (vec (keys fields))
+       table-node (md/query-selector ".entity")
+       request-body {:entity-type  entity-type}
+       input-element-id (md/query-selector-on-element table-node
                                                           "#txt_id")
-       entity-id            (md/get-value input-element-id)
-       entity               (atom {})
-       specific-read-form   (:specific-read-form entity-conf)]
+       entity-id (md/get-value input-element-id)
+       entity (atom {})
+       specific-read-form (:specific-read-form form-conf)]
   (if specific-read-form
    (specific-read-form
     entity)
    (doseq [e-key entity-keys]
-    (let [entity-field   (e-key entity-fields)
-          label          (:label entity-field)
-          field-type     (:field-type entity-field)
-          data-type      (:data-type entity-field)
-          id-prefix      (case field-type
-                          "input"  "txt"
-                          "radio"  "r"
-                          "checkbox"  "cb"
-                          "textarea"  "ta"
-                          "")
+    (let [field (e-key fields)
+          label-txt (:label field)
+          field-type (:field-type field)
+          data-type (:data-type field)
+          id-prefix (case field-type
+                     "input"  "txt"
+                     "radio"  "r"
+                     "checkbox"  "cb"
+                     "textarea"  "ta"
+                     "")
           element-id (str id-prefix
-                          (md/replace-all label
+                          (md/replace-all label-txt
                                           " "
-                                          ""))
-          debug (.log js/console element-id)]
+                                          ""))]
      (case field-type
       "radio"  (swap! entity conj {e-key (md/checked-value element-id)})
       "checkbox"  "cb"
-      (let [input-element  (md/query-selector-on-element table-node (str "#" element-id))
-            input-element-type  (md/get-type input-element)
-            input-element-value  (md/get-value input-element)
-            input-element-value  (if (= input-element-type
-                                        "number")
-                                  (reader/read-string input-element-value)
-                                  input-element-value)]
+      (let [input-element (md/query-selector-on-element table-node (str "#" element-id))
+            input-element-type (md/get-type input-element)
+            input-element-value (md/get-value input-element)
+            input-element-value (if (= input-element-type
+                                       "number")
+                                 (reader/read-string input-element-value)
+                                 input-element-value)]
        (swap! entity conj {e-key input-element-value}))
       ))
     ))
   (ajax
-   {:url                  (if (= "Insert" action)
-                           insert-entity-url
-                           update-entity-url)
-    :success-fn           insert-update-entity-success
-    :entity               (assoc request-body :entity @entity :_id entity-id)
-    :conf                 conf}))
+   {:url (if (= "Insert" action)
+          insert-entity-url
+          update-entity-url)
+    :success-fn insert-update-entity-success
+    :entity (assoc request-body :entity @entity :_id entity-id)
+    :conf conf}))
  )
 
-(defn popup-centered
+(defn- popup-centered
  ""
  [el]
  (let [height (aget el "clientHeight")
@@ -681,13 +653,13 @@
              "px)"))
   ))
 
-(defn close-popup
+(defn- close-popup
  ""
  []
  (md/remove-element "#popup-window")
  (md/remove-element "#popup-background"))
 
-(defn popup-fn
+(defn- popup-fn
  ""
  [{content :content
    heading :heading}]
@@ -731,47 +703,53 @@
     action :action
     action-fn :action-fn
     action-fn-param :action-fn-param
-    {entity-type :entity-type
-     entity-fields :entity-fields
-     entity-keys :fields-order} :entity-conf} :conf}]
+    {entity-type :type
+     fields :fields
+     entity-keys :fields-order} :form-conf} :conf}]
  (let [response (if-not (nil? xhr)
                  (get-response xhr)
                  nil)
        entity-data (:data response)
        disabled (if (= form-type "Details")
-                  true
-                  false)
+                 true
+                 false)
        trs (atom [])]
-  (swap! trs conj (tr
-                       (td
-                            (h3
-                                 (str form-type
-                                      " "
-                                      entity-type))
-                            {:colspan 3})))
-  (swap! trs conj (tr
-                       (td
-                            (input
-                                 ""
-                                 {:id "txt_id"
-                                  :name "txt_id"
-                                  :type "hidden"
-                                  :value (:_id entity-data)})
-                            {:colspan 3})))
+  (swap!
+    trs
+    conj
+    (tr
+     (td
+      (h3 (str form-type
+               " "
+               entity-type))
+     {:colspan 3}))
+   )
+  (swap!
+    trs
+    conj
+    (tr
+     (td
+      (input ""
+             {:id "txt_id"
+              :name "txt_id"
+              :type "hidden"
+              :value (:_id entity-data)})
+      {:colspan 3}))
+   )
   (doseq [e-key entity-keys]
-    (let [field-conf       (e-key entity-fields)
-          label-txt            (:label field-conf)
-          label-no-spaces  (if (string? label-txt)
-                            (md/replace-all label-txt " " "")
-                            "lblDefault")
-          field-type       (:field-type field-conf)
-          data-type        (:data-type field-conf)
-          step             (:step field-conf)
-          disabled         (if (:disabled field-conf)
-                            (:disabled field-conf)
-                            disabled)
-          options          (:options field-conf)
-          data             (e-key entity-data)
+    (let [field-conf (e-key fields)
+          label-txt (:label field-conf)
+          label-no-spaces (if (string? label-txt)
+                           (md/replace-all label-txt " " "")
+                           "lblDefault")
+          field-type (:field-type field-conf)
+          data-type (:data-type field-conf)
+          step (:step field-conf)
+          disabled (if (:disabled field-conf)
+                    (:disabled field-conf)
+                    disabled)
+          options (:options field-conf)
+          data (e-key entity-data)
           sub-form-trs (:sub-form-trs field-conf)
           popup-content (:popup field-conf)]
       (when (= field-type
@@ -846,36 +824,36 @@
        )
       )
    )
-  (swap! trs conj (tr
-                       [(td
-                             (input
-                                  ""
-                                  {:id "btnCancel"
-                                   :type "button"
-                                   :value "Cancel"
-                                   :style {:float "right"}}
-                                  {:onclick {:evt-fn table-fn
-                                             :evt-p conf}}))
-                        (td
-                             (input
-                                  ""
-                                  {:id (str "btn"
-                                            action)
-                                   :type "button"
-                                   :value action}
-                                  {:onclick {:evt-fn action-fn
-                                             :evt-p (if action-fn-param
-                                                     action-fn-param
-                                                     conf)}}
-                              ))
-                        (td)]))
+  (swap!
+    trs
+    conj
+    (tr [(td
+          (input ""
+                 {:id "btnCancel"
+                  :type "button"
+                  :value "Cancel"
+                  :style {:float "right"}}
+                 {:onclick {:evt-fn table-fn
+                            :evt-p conf}}))
+         (td
+          (input ""
+                 {:id (str "btn"
+                           action)
+                  :type "button"
+                  :value action}
+                 {:onclick {:evt-fn action-fn
+                            :evt-p (if action-fn-param
+                                    action-fn-param
+                                    conf)}}
+           ))
+         (td)]))
   @trs))
 
 (defn- generate-form
   "Generate entity form"
   [xhr
    ajax-params]
-  (let [{{{entity-type :entity-type} :entity-conf} :conf} ajax-params
+  (let [{{{entity-type :type} :form-conf} :conf} ajax-params
         table-node (gen
                     (div
                          (table
@@ -883,74 +861,85 @@
                                xhr
                                ajax-params))
                          {:class "entity"}))]
-   (md/fade-out-and-fade-in ".content"
-                             anim-time
-                             table-node))
+   (md/remove-element-content ".content")
+   (md/append-element ".content"
+                      table-node))
  )
 
 (defn- entity-form
-  "Request data about particular entity for display, edit/update"
-  [conf
-   sl-node]
-  (let [from-details (:from-details conf)
-        conf (assoc conf :from-details nil)
-        ent-id (:ent-id conf)
-        entity (:entity-conf conf)
-        ent-id-key (:entity-id entity)
-        entity-type (:entity-type entity)
-        entity-fields (:entity-fields entity)
-        request-body {:entity-type  entity-type
-                      :entity-filter  {ent-id-key ent-id}}]
-   (ajax
-    {:url                  get-entity-url
-     :success-fn           generate-form
-     :entity               request-body
-     :conf                 conf}))
+ "Request data about particular entity for display, edit/update"
+ [conf
+  sl-node]
+ (let [from-details (:from-details conf)
+       conf (assoc conf :from-details nil)
+       ent-id (:ent-id conf)
+       entity (:form-conf conf)
+       ent-id-key (:id entity)
+       entity-type (:type entity)
+       fields (:fields entity)
+       request-body {:entity-type entity-type
+                     :entity-filter {ent-id-key ent-id}}]
+  (ajax
+   {:url                  get-entity-url
+    :success-fn           generate-form
+    :entity               request-body
+    :conf                 conf}))
   )
 
-(defn create-entity
+(defn- create-entity
   "Call generate-form function with create entity parameters"
   [conf]
-  (generate-form nil
-                {:conf (assoc conf
-                              :form-type  "Create"
-                              :action     "Insert"
-                              :action-fn  insert-update-entity)}))
+  (generate-form
+    nil
+    {:conf
+     (assoc
+       conf
+       :form-type  "Create"
+       :action     "Insert"
+       :action-fn  insert-update-entity)}))
 
 (defn- edit-entity-from-table
   "Call entity-form function from generated entities table with edit entity parameters"
   [conf
    sl-node]
-  (entity-form (assoc conf
-                      :form-type  "Edit"
-                      :action     "Update"
-                      :action-fn  insert-update-entity)
-               sl-node))
+  (entity-form
+   (assoc
+     conf
+     :form-type  "Edit"
+     :action     "Update"
+     :action-fn  insert-update-entity)
+   sl-node))
 
 (defn- edit-entity-from-details
   "Call entity-form function from generated details form with edit entity parameters"
   [conf
    sl-node]
-  (entity-form (assoc conf
-                      :form-type     "Edit"
-                      :action        "Update"
-                      :action-fn     insert-update-entity
-                      :from-details  true)
-               sl-node))
+  (entity-form
+   (assoc
+     conf
+     :form-type     "Edit"
+     :action        "Update"
+     :action-fn     insert-update-entity
+     :from-details  true)
+   sl-node))
 
 (defn- entity-details
   "Call entity-form function from generated entities table with details entity parameters"
   [conf
    sl-node]
-  (entity-form (assoc conf
-                      :form-type "Details"
-                      :action "Edit"
-                      :action-fn edit-entity-from-details
-                      :action-fn-param (assoc conf
-                                              :form-type  "Edit"
-                                              :action     "Update"
-                                              :action-fn  insert-update-entity))
-               sl-node))
+  (entity-form
+   (assoc
+     conf
+     :form-type "Details"
+     :action "Edit"
+     :action-fn edit-entity-from-details
+     :action-fn-param
+      (assoc
+        conf
+        :form-type  "Edit"
+        :action     "Update"
+        :action-fn  insert-update-entity))
+   sl-node))
 
 (defn- entity-delete-success
   "Entity delete success"
@@ -963,10 +952,10 @@
   "Request entity to be deleted from server"
   [conf
    sl-node]
-  (let [entity (:entity-conf conf)
+  (let [entity (:form-conf conf)
         ent-id (:ent-id conf)
-        ent-id-key (:entity-id entity)
-        entity-type (:entity-type entity)
+        ent-id-key (:id entity)
+        entity-type (:type entity)
         request-body {:entity-type  entity-type
                       :entity-filter  {ent-id-key ent-id}}]
    (ajax
@@ -980,64 +969,66 @@
 (defn- entity-table-success
  "Generate entity table after retrieving entities"
  [xhr
-  {conf :conf
-   {table-fn :table-fn} :conf}]
+  {conf :conf}]
  (let [table-class (or (:table-class conf) "entities")
-       columns-styles (:columns-styles conf)
+       columns (:columns conf)
+       render-in (:render-in conf)
        response (get-response xhr)
        entities (:data response)
        pagination (:pagination response)
-       render-in (:render-in conf)
-       animation (:animation conf)
-       animation-duration (:animation-duration conf)
-       actions []
-       actions (if (:details conf)
-                (conj actions
-                      ["details"
-                       entity-details
-                       conf])
-                actions)
-       actions (if (:edit conf)
-                (conj actions
-                      ["edit"
-                       edit-entity-from-table
-                       conf])
-                actions)
-       actions (if (:delete conf)
-                (conj actions
-                      ["delete"
-                       entity-delete
-                       conf])
-                actions)]
-  (if (empty? entities)
-   (let [table-node (gen
+       actions (:actions conf)
+       actions-columns (atom [])]
+  (when
+   (contains?
+     actions
+     :details)
+   (swap!
+     actions-columns
+     conj
+     ["details"
+      entity-details
+      conf]))
+  (when
+   (contains?
+     actions
+     :edit)
+   (swap!
+     actions-columns
+     conj
+     ["edit"
+      edit-entity-from-table
+      conf]))
+  (when
+   (contains?
+     actions
+     :delete)
+   (swap!
+     actions-columns
+     conj
+     ["delete"
+      entity-delete
+      conf]))
+  (let [table-node (if (empty? entities)
+                    (gen
+                     (div "No entities"
+                          {:class table-class}))
+                    (gen
                      (div
-                          "No entities"
-                          {:class table-class}))]
-    (md/fade-out-and-fade-in
-     render-in
-     animation-duration
-     table-node))
-   (let [table-node (gen
-                     (div
-                      (table
-                           [(generate-thead
-                             columns-styles
-                             table-class
-                             actions
-                             pagination
-                             conf)
-                            (generate-tbody
-                             columns-styles
-                             entities
-                             actions)])
-                      {:class table-class}))]
-       (md/fade-out-and-fade-in
-        render-in
-        animation-duration
-        table-node))
-   ))
- )
+                      (table [(generate-thead
+                                table-class
+                                columns
+                                @actions-columns
+                                pagination
+                                conf)
+                              (generate-tbody
+                                entities
+                                columns
+                                @actions-columns)])
+                      {:class table-class})))]
+  (md/remove-element-content render-in)
+  (md/append-element render-in
+                     table-node))
+  ))
 
 (defn gen-table
  "Generate table with data
@@ -1066,6 +1057,6 @@
  (ajax
   {:url get-entities-url
    :success-fn entity-table-success
-   :entity (:table-conf conf)
+   :entity (:query conf)
    :conf conf}))
 
