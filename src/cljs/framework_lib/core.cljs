@@ -346,11 +346,13 @@
             conj
             (td
               (div 
-                (a content
-                   {:title content}
-                   {:onclick {:evt-fn evt-fn
-                              :evt-p (assoc evt-p
-                                            :ent-id row-id)}}))
+                (input ""
+                       {:title content
+                        :type "button"
+                        :value content}
+                       {:onclick {:evt-fn evt-fn
+                                  :evt-p (assoc evt-p
+                                                :ent-id row-id)}}))
              ))
           )
          @tds))
