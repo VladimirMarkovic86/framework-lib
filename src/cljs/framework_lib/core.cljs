@@ -529,11 +529,12 @@
 
 (defn- render-img
  ""
- []
- (let [file-field (md/query-selector "#txtImage")
+ [{file-id :file-id
+   img-id :img-id}]
+ (let [file-field (md/query-selector (str "#" file-id))
        file-field-parent (md/get-parent-node file-field)
        file (aget (aget file-field "files") 0)
-       img (md/query-selector "#imgImage")
+       img (md/query-selector (str "#" img-id))
        fileReader (js/FileReader.)
        onload (aset fileReader "onload"
                ((fn [aimg]
@@ -547,29 +548,34 @@
  [data
   label-txt
   disabled]
- [(div
-   (img ""
-        {:id (str "img"
-                  label-txt)
-         :name (str "img"
+ (let [img-id (str "img"
+                   label-txt)
+       file-id (str "file"
                     label-txt)
-         :style {:width "100px"
-                 :height "100px"}
-         :src data}))
-  (div (let [id (str "txt"
-                     label-txt)
-            attrs {:id id
-                   :name id
-                   :type "file"
-                   :required "required"}
-            attrs (if disabled
-                   (assoc attrs
-                          :disabled "disabled")
-                   attrs)]
-        (input ""
-               attrs
-               {:onchange {:evt-fn render-img}}))
-   )])
+       attrs {:id file-id
+              :name file-id
+              :type "file"
+              :required "required"}
+       attrs (if disabled
+              (assoc attrs
+                     :disabled "disabled")
+              attrs)]
+  [(div
+    (img ""
+         {:id img-id
+          :name img-id
+          :style {:width "100px"
+                  :height "100px"}
+          :src data}))
+   (div
+    (input ""
+           attrs
+           {:onchange {:evt-fn render-img
+                       :evt-p {:file-id file-id
+                               :img-id img-id}}})
+    )]
+  )
+ )
 
 (defn- insert-update-entity-success
   "After successful entity insert or update display table again"
@@ -603,10 +609,11 @@
           field-type (:field-type field)
           data-type (:data-type field)
           id-prefix (case field-type
-                     "input"  "txt"
-                     "radio"  "r"
-                     "checkbox"  "cb"
-                     "textarea"  "ta"
+                     "input" "txt"
+                     "radio" "r"
+                     "checkbox" "cb"
+                     "textarea" "ta"
+                     "image" "img"
                      "")
           element-id (str id-prefix
                           (md/replace-all label-txt
@@ -614,10 +621,13 @@
                                           ""))]
      (case field-type
       "radio"  (swap! entity conj {e-key (md/checked-value element-id)})
-      "checkbox"  "cb"
+      "checkbox"  (swap! entity conj {e-key (md/cb-checked-values element-id)})
       (let [input-element (md/query-selector-on-element table-node (str "#" element-id))
             input-element-type (md/get-type input-element)
-            input-element-value (md/get-value input-element)
+            input-element-value (if (= field-type
+                                       "image")
+                                 (md/get-src input-element)
+                                 (md/get-value input-element))
             input-element-value (if (= input-element-type
                                        "number")
                                  (reader/read-string input-element-value)
