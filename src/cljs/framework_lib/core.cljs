@@ -530,26 +530,35 @@
 (defn- render-img
  ""
  [{file-id :file-id
-   img-id :img-id}]
+   img-id :img-id
+   hidden-id :hidden-id}]
  (let [file-field (md/query-selector (str "#" file-id))
        file-field-parent (md/get-parent-node file-field)
        file (aget (aget file-field "files") 0)
        img (md/query-selector (str "#" img-id))
+       hidden-input (md/query-selector (str "#" hidden-id))
        fileReader (js/FileReader.)
        onload (aset fileReader "onload"
-               ((fn [aimg]
-                (fn [e]
-                 (aset aimg "src" (aget (aget e "target") "result"))))
-                  img))
+               ((fn [aimg
+                     ahidden-input]
+                 (fn [e]
+                  (aset aimg "src" (aget (aget e "target") "result"))
+                  (aset ahidden-input "value" (aget (aget e "target") "result"))
+                  ))
+                 img
+                 hidden-input))
        dataURL (.readAsDataURL fileReader file)]))
 
-(defn- image-field
+(defn image-field
  ""
  [data
   label-txt
-  disabled]
+  disabled
+  & [style-attrs]]
  (let [img-id (str "img"
                    label-txt)
+       hidden-id (str "hidden"
+                      label-txt)
        file-id (str "file"
                     label-txt)
        attrs {:id file-id
@@ -561,18 +570,27 @@
                      :disabled "disabled")
               attrs)]
   [(div
-    (img ""
-         {:id img-id
-          :name img-id
-          :style {:width "100px"
+    [(img
+       ""
+       {:id img-id
+        :name img-id
+        :style (conj 
+                 {:width "100px"
                   :height "100px"}
-          :src data}))
+                 style-attrs)
+        :src data})
+     (input
+       ""
+       {:id hidden-id
+        :type "hidden"
+        :value data})])
    (div
     (input ""
            attrs
            {:onchange {:evt-fn render-img
                        :evt-p {:file-id file-id
-                               :img-id img-id}}})
+                               :img-id img-id
+                               :hidden-id hidden-id}}})
     )]
   )
  )
