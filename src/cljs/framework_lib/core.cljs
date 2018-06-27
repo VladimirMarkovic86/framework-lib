@@ -229,77 +229,78 @@
    actions-columns
    pagination
    conf]
-  (thead [(tr (generate-ths columns
-                            actions-columns))
-          (tr
-           (th
-            (div
-             (let [current-page (:current-page pagination)
-                   rows (:rows pagination)
-                   total-row-count (:total-row-count pagination)
-                   first-page-index 0
-                   second-page-index 1
-                   number-of-pages (utils/round-up total-row-count rows)
-                   last-page-index (dec number-of-pages)
-                   one-before-last (dec last-page-index)
-                   assoc-page (fn [page]
-                               {:onclick
-                                {:evt-fn handle-paging
-                                 :evt-p {:conf conf
-                                         :pagination pagination
-                                         :page page}}})
-                   condition-i (< number-of-pages 4)
-                   condition-ii (= current-page
-                                   first-page-index)
-                   condition-iii (= current-page
-                                    last-page-index)
-                   pagination-row (atom nil)]
-              (when condition-i
-               (reset!
-                 pagination-row
-                 (generate-pagination
-                   current-page
-                   number-of-pages
-                   0 ; bez prikaza
-                   assoc-page))
-               )
-              (when (and (not condition-i)
-                         condition-ii)
-               (reset!
-                 pagination-row
-                 (generate-pagination
-                   current-page
-                   number-of-pages
-                   1 ; zadnja dva se prikazuju
-                   assoc-page))
-               )
-              (when (and (not condition-i)
-                         (not condition-ii)
-                         condition-iii)
-               (reset!
-                 pagination-row
-                 (generate-pagination
-                   current-page
-                   number-of-pages
-                   2 ; prva dva se prikazuju
-                   assoc-page))
-               )
-              (when (and (not condition-i)
-                         (not condition-ii)
-                         (not condition-iii))
-               (reset!
-                 pagination-row
-                 (generate-pagination
-                   current-page
-                   number-of-pages
-                   3 ; svi se prikazuju
-                   assoc-page))
-               )
-              @pagination-row)
-             {:class "pagination"})
-             {:colspan (+ (count actions-columns)
-                          (count (:projection columns)))})
-           )]))
+  (thead
+    [(tr (generate-ths columns
+                       actions-columns))
+     (tr
+      (th
+       (div
+        (let [current-page (:current-page pagination)
+              rows (:rows pagination)
+              total-row-count (:total-row-count pagination)
+              first-page-index 0
+              second-page-index 1
+              number-of-pages (utils/round-up total-row-count rows)
+              last-page-index (dec number-of-pages)
+              one-before-last (dec last-page-index)
+              assoc-page (fn [page]
+                          {:onclick
+                           {:evt-fn handle-paging
+                            :evt-p {:conf conf
+                                    :pagination pagination
+                                    :page page}}})
+              condition-i (< number-of-pages 4)
+              condition-ii (= current-page
+                              first-page-index)
+              condition-iii (= current-page
+                               last-page-index)
+              pagination-row (atom nil)]
+         (when condition-i
+           (reset!
+             pagination-row
+             (generate-pagination
+               current-page
+               number-of-pages
+               0 ; bez prikaza
+               assoc-page))
+          )
+         (when (and (not condition-i)
+                    condition-ii)
+          (reset!
+            pagination-row
+            (generate-pagination
+              current-page
+              number-of-pages
+              1 ; zadnja dva se prikazuju
+              assoc-page))
+          )
+         (when (and (not condition-i)
+                    (not condition-ii)
+                    condition-iii)
+          (reset!
+            pagination-row
+            (generate-pagination
+              current-page
+              number-of-pages
+              2 ; prva dva se prikazuju
+              assoc-page))
+          )
+         (when (and (not condition-i)
+                    (not condition-ii)
+                    (not condition-iii))
+          (reset!
+            pagination-row
+            (generate-pagination
+              current-page
+              number-of-pages
+              3 ; svi se prikazuju
+              assoc-page))
+          )
+         @pagination-row)
+        {:class "pagination"})
+        {:colspan (+ (count actions-columns)
+                     (count (:projection columns)))})
+      )]))
 
 (defn- generate-tbody
  "Generate tbody for table"
@@ -334,8 +335,9 @@
              tds
              conj
              (td
-              (div content
-                   {:style td-style})
+               (div
+                 content
+                 {:style td-style})
               td-attrs))
            ))
          (doseq [[content
@@ -350,9 +352,10 @@
                        {:title content
                         :type "button"
                         :value content}
-                       {:onclick {:evt-fn evt-fn
-                                  :evt-p (assoc evt-p
-                                                :ent-id row-id)}}))
+                       {:onclick
+                         {:evt-fn evt-fn
+                          :evt-p (assoc evt-p
+                                        :ent-id row-id)}}))
              ))
           )
          @tds))
@@ -730,6 +733,7 @@
   {conf :conf
    {table-fn :table-fn
     form-type :form-type
+    actions :actions
     action :action
     action-fn :action-fn
     action-fn-param :action-fn-param
@@ -788,21 +792,25 @@
         (swap! trs conj sub-form-tr)))
       (when (= field-type
                popup)
-       (swap! trs conj (tr [(td (label label-txt))
-                            (td (input ""
-                                       {:id (str "btn"
-                                                 label-no-spaces)
-                                        :value "Change"
-                                        :type "button"}
-                                       {:onclick {:evt-fn popup-fn
-                                                  :evt-p
-                                                   {:content popup-content
-                                                    :heading label-txt}}}))
-                            (td ""
-                                {:id (str "td"
-                                          label-no-spaces)})]
-                           )
-        ))
+        (swap!
+          trs
+          conj
+          (tr
+            [(td (label label-txt))
+             (td (input ""
+                        {:id (str "btn"
+                                  label-no-spaces)
+                         :value "Change"
+                         :type "button"}
+                        {:onclick {:evt-fn popup-fn
+                                   :evt-p
+                                    {:content popup-content
+                                     :heading label-txt}}}))
+             (td ""
+                 {:id (str "td"
+                           label-no-spaces)})]
+           ))
+       )
       (when (and (not= field-type
                        sub-form)
                  (not= field-type
@@ -858,24 +866,36 @@
     trs
     conj
     (tr [(td
-          (input ""
-                 {:id "btnCancel"
-                  :type "button"
-                  :value "Cancel"
-                  :style {:float "right"}}
-                 {:onclick {:evt-fn table-fn
-                            :evt-p conf}}))
+           (input ""
+                  {:id "btnCancel"
+                   :type "button"
+                   :value "Cancel"
+                   :style {:float "right"}}
+                  {:onclick {:evt-fn table-fn
+                             :evt-p conf}}))
          (td
-          (input ""
-                 {:id (str "btn"
-                           action)
-                  :type "button"
-                  :value action}
-                 {:onclick {:evt-fn action-fn
-                            :evt-p (if action-fn-param
-                                    action-fn-param
-                                    conf)}}
-           ))
+           (when (or (not= action
+                           "Edit")
+                     (and (= action
+                             "Edit")
+                          (contains?
+                            actions
+                            (keyword
+                              (.toLowerCase
+                                action))
+                           ))
+                  )
+             (input
+               ""
+               {:id (str "btn"
+                         action)
+                :type "button"
+                :value action}
+               {:onclick {:evt-fn action-fn
+                          :evt-p (if action-fn-param
+                                   action-fn-param
+                                   conf)}})
+            ))
          (td)]))
   @trs))
 
@@ -885,36 +905,38 @@
    ajax-params]
   (let [{{{entity-type :type} :form-conf} :conf} ajax-params
         table-node (gen
-                    (div
-                         (table
-                              (generate-form-trs
-                               xhr
-                               ajax-params))
-                         {:class "entity"}))]
-   (md/remove-element-content ".content")
-   (md/append-element ".content"
-                      table-node))
+                     (div
+                       (table
+                         (generate-form-trs
+                          xhr
+                          ajax-params))
+                       {:class "entity"}))]
+   (md/remove-element-content
+     ".content")
+   (md/append-element
+     ".content"
+     table-node))
  )
 
 (defn- entity-form
- "Request data about particular entity for display, edit/update"
- [conf
-  sl-node]
- (let [from-details (:from-details conf)
-       conf (assoc conf :from-details nil)
-       ent-id (:ent-id conf)
-       entity (:form-conf conf)
-       ent-id-key (:id entity)
-       entity-type (:type entity)
-       fields (:fields entity)
-       request-body {:entity-type entity-type
-                     :entity-filter {ent-id-key ent-id}}]
-  (ajax
-   {:url                  get-entity-url
-    :success-fn           generate-form
-    :entity               request-body
-    :conf                 conf}))
-  )
+  "Request data about particular entity for display, edit/update"
+  [conf
+   sl-node]
+  (let [from-details (:from-details conf)
+        conf (assoc conf :from-details nil)
+        ent-id (:ent-id conf)
+        entity (:form-conf conf)
+        ent-id-key (:id entity)
+        entity-type (:type entity)
+        fields (:fields entity)
+        request-body {:entity-type entity-type
+                      :entity-filter {ent-id-key ent-id}}]
+   (ajax
+     {:url                  get-entity-url
+      :success-fn           generate-form
+      :entity               request-body
+      :conf                 conf}))
+   )
 
 (defn- create-entity
   "Call generate-form function with create entity parameters"
@@ -933,11 +955,11 @@
   [conf
    sl-node]
   (entity-form
-   (assoc
-     conf
-     :form-type  "Edit"
-     :action     "Update"
-     :action-fn  insert-update-entity)
+    (assoc
+      conf
+      :form-type "Edit"
+      :action "Update"
+      :action-fn insert-update-entity)
    sl-node))
 
 (defn- edit-entity-from-details
@@ -945,12 +967,12 @@
   [conf
    sl-node]
   (entity-form
-   (assoc
-     conf
-     :form-type     "Edit"
-     :action        "Update"
-     :action-fn     insert-update-entity
-     :from-details  true)
+    (assoc
+      conf
+      :form-type "Edit"
+      :action "Update"
+      :action-fn insert-update-entity
+      :from-details true)
    sl-node))
 
 (defn- entity-details
@@ -964,11 +986,11 @@
      :action "Edit"
      :action-fn edit-entity-from-details
      :action-fn-param
-      (assoc
-        conf
-        :form-type  "Edit"
-        :action     "Update"
-        :action-fn  insert-update-entity))
+       (assoc
+         conf
+         :form-type "Edit"
+         :action "Update"
+         :action-fn insert-update-entity))
    sl-node))
 
 (defn- entity-delete-success
