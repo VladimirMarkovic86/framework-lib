@@ -4,7 +4,7 @@
             [utils-lib.core :as utils]
             [htmlcss-lib.core :refer [gen stl anmtn slctr
                                       table thead tbody tr th td
-                                      button label input div h3 h2
+                                      button label input div h3
                                       textarea select option img a]]
             [cljs.reader :as reader]
             [clojure.string :as cstr]))
@@ -687,7 +687,8 @@
         entity-id (md/get-value
                     input-element-id)
         entity (atom {})
-        specific-read-form (:specific-read-form form-conf)]
+        specific-read-form (:specific-read-form form-conf)
+        framework-default-error (:framework-default-error conf)]
     (if specific-read-form
       (specific-read-form
         entity)
@@ -750,6 +751,7 @@
               insert-entity-url
               update-entity-url)
        :success-fn insert-update-entity-success
+       :error-fn framework-default-error
        :entity (assoc request-body :entity @entity :_id entity-id)
        :conf conf}))
  )
@@ -783,44 +785,56 @@
   (md/remove-element
     "#popup-background"))
 
-(defn- popup-fn
+(defn popup-fn
   "Append generated popup to body"
   [{content :content
     heading :heading}]
   (md/append-element
     "body"
     (gen
-      [(div
-         ""
+      (div
+         [(div
+            ""
+            {:style {:position "absolute"
+                     :width "100%"
+                     :height "100%"
+                     :opacity "0.2"
+                     :background-color "black"}})
+          (div
+            [(input
+               ""
+               {:id "close-btn"
+                :style {:float "right"
+                        :margin-top "10px"
+                        :border-radius "15px"
+                        :padding "0px 4px"}
+                :value "X"
+                :type "button"}
+               {:onclick {:evt-fn close-popup}})
+             (div
+               (h3
+                 heading)
+               {:id "popup-heading"
+                :style {:text-align "center"}})
+             (div
+               content
+               {:id "popup-content"})]
+            {:id "popup-window"
+             :style {:border "5px solid white"
+                     :border-radius "15px"
+                     :padding "0 15px 15px 15px"
+                     :z-index "0"
+                     :background-color "white"}})]
          {:id "popup-background"
           :style {:position "absolute"
                   :width "100%"
                   :height "100%"
-                  :opacity "0.2"
-                  :background-color "black"}})
-       (div
-         [(input
-            ""
-            {:style {:float "right"
-                     :margin-top "10px"}
-             :value "X"
-             :type "button"}
-            {:onclick {:evt-fn close-popup}})
-          (div
-            (h2 heading)
-            {:style {:text-align "center"}})
-          (div (content))]
-        {:id "popup-window"
-         :style {:position "absolute"
-                 :background-color "#90B4FE"
-                 :border "5px solid white"
-                 :border-radius "15px"
-                 :padding "0 15px 15px 15px"}})])
-   )
-  (popup-centered
-    (md/query-selector
-      "#popup-window"))
- )
+                  :top "0"
+                  :display "grid"
+                  :justify-content "center"
+                  :align-content "center"
+                  :color "black"}}))
+   ))
 
 (defn- generate-form-trs
   "Generate form fields"
@@ -1043,13 +1057,15 @@
         entity-type (:type entity)
         fields (:fields entity)
         request-body {:entity-type entity-type
-                      :entity-filter {ent-id-key ent-id}}]
+                      :entity-filter {ent-id-key ent-id}}
+        framework-default-error (:framework-default-error conf)]
     (ajax
       {:url get-entity-url
        :success-fn generate-form
+       :error-fn framework-default-error
        :entity request-body
        :conf conf}))
-   )
+ )
 
 (defn- create-entity
   "Call generate-form function with create entity parameters"
@@ -1123,21 +1139,56 @@
         ent-id-key (:id entity)
         entity-type (:type entity)
         request-body {:entity-type entity-type
-                      :entity-filter {ent-id-key ent-id}}]
+                      :entity-filter {ent-id-key ent-id}}
+        framework-default-error (:framework-default-error conf)]
    (ajax
      {:url delete-entity-url
       :request-method "DELETE"
       :success-fn entity-delete-success
+      :error-fn framework-default-error
       :entity request-body
       :conf conf}))
  )
 
+(defn search-entities-fn
+  ""
+  [ajax-params]
+  (let [gen-table-fn (:gen-table-fn ajax-params)
+        conf (:conf ajax-params)
+        search-value (md/get-value
+                       "#txtSearchTable")
+        query (:query conf)
+        query (let [search-fields (:search query)
+                    or-vector (atom [])]
+                (doseq [search-field search-fields]
+                  (swap!
+                    or-vector
+                    conj
+                    {search-field {"$regex" search-value}}))
+                (assoc
+                  query
+                  :entity-filter
+                  {"$or" @or-vector}))]
+    (gen-table-fn
+      (assoc
+        conf
+        :query
+        query
+        :search
+        true))
+   ))
+
 (defn- entity-table-success
   "Generate entity table after retrieving entities"
   [xhr
-   {conf :conf}]
-  (let [table-class (or (:table-class conf)
+   ajax-params]
+  (let [{conf :conf} ajax-params
+        search (:search ajax-params)
+        table-class (or (:table-class conf)
                         "entities")
+        table-selector (str
+                         "."
+                         table-class)
         columns (:columns conf)
         render-in (:render-in conf)
         response (get-response xhr)
@@ -1175,32 +1226,61 @@
         ["delete"
          entity-delete
          conf]))
-    (let [table-node (if (empty? entities)
-                       (gen
-                         (div
-                           "No entities"
-                           {:class table-class}))
-                       (gen
-                         (div
-                           (table
-                             [(generate-thead
-                                table-class
-                                columns
-                                @actions-columns
-                                pagination
-                                conf)
-                              (generate-tbody
-                                entities
-                                columns
-                                @actions-columns)])
-                          {:class table-class}))
+    (let [table-node (gen
+                       [(when (not search)
+                          (div
+                            (table
+                              (tr
+                                [(td
+                                   (label
+                                     "Search:"))
+                                 (td
+                                   (input
+                                     ""
+                                     {:id "txtSearchTable"}
+                                     {:onkeyup {:evt-fn search-entities-fn
+                                                :evt-p ajax-params}}))]
+                               ))
+                            {:class "search"})
+                         )
+                        (if (empty? entities)
+                          (div
+                            "No entities"
+                            {:class table-class})
+                          (div
+                            (table
+                              [(generate-thead
+                                 table-class
+                                 columns
+                                 @actions-columns
+                                 pagination
+                                 conf)
+                               (generate-tbody
+                                 entities
+                                 columns
+                                 @actions-columns)])
+                           {:class table-class}))]
                       )]
-      (md/remove-element-content
-        render-in)
+      (if search
+        (md/remove-element
+          table-selector)
+        (md/remove-element-content
+          render-in))
       (md/append-element
         render-in
         table-node))
    ))
+
+(defn framework-default-error
+  ""
+  [xhr]
+  (let [response (get-response xhr)
+        message (:message response)
+        status (:status response)]
+    (popup-fn
+      {:heading status
+       :content message}))
+ )
 
 (defn gen-table
   "Generate table with data
@@ -1226,9 +1306,21 @@
                        :data  \"data of column 3 row 2\"}]]
   table-class    Represents class of div that contains table that will be generated"
   [conf]
-  (ajax
-    {:url get-entities-url
-     :success-fn entity-table-success
-     :entity (:query conf)
-     :conf conf}))
+  (let [conf (assoc
+               conf
+               :framework-default-error
+               framework-default-error)
+        search (:search conf)
+        conf (dissoc
+               conf
+               :search)]
+    (ajax
+      {:url get-entities-url
+       :success-fn entity-table-success
+       :error-fn framework-default-error
+       :entity (:query conf)
+       :conf conf
+       :gen-table-fn gen-table
+       :search search}))
+ )
 
