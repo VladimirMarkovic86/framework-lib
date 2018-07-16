@@ -250,77 +250,80 @@
        (generate-ths
          columns
          actions-columns))
-     (tr
-       (th
-         (div
-           (let [current-page (:current-page pagination)
-                 rows (:rows pagination)
-                 total-row-count (:total-row-count pagination)
-                 first-page-index 0
-                 second-page-index 1
-                 number-of-pages (utils/round-up total-row-count rows)
-                 last-page-index (dec number-of-pages)
-                 one-before-last (dec last-page-index)
-                 assoc-page (fn [page]
-                             {:onclick
-                              {:evt-fn handle-paging
-                               :evt-p {:conf conf
-                                       :pagination pagination
-                                       :page page}}})
-                 condition-i (< number-of-pages 4)
-                 condition-ii (= current-page
-                                 first-page-index)
-                 condition-iii (= current-page
-                                  last-page-index)
-                 pagination-row (atom nil)]
-             (when condition-i
-               (reset!
-                 pagination-row
-                 (generate-pagination
-                   current-page
-                   number-of-pages
-                   0 ; bez prikaza
-                   assoc-page))
-              )
-             (when (and (not condition-i)
-                        condition-ii)
-               (reset!
-                 pagination-row
-                 (generate-pagination
-                   current-page
-                   number-of-pages
-                   1 ; zadnja dva se prikazuju
-                   assoc-page))
-              )
-             (when (and (not condition-i)
-                        (not condition-ii)
-                        condition-iii)
-               (reset!
-                 pagination-row
-                 (generate-pagination
-                   current-page
-                   number-of-pages
-                   2 ; prva dva se prikazuju
-                   assoc-page))
-              )
-             (when (and (not condition-i)
-                        (not condition-ii)
-                        (not condition-iii))
-               (reset!
-                 pagination-row
-                 (generate-pagination
-                   current-page
-                   number-of-pages
-                   3 ; svi se prikazuju
-                   assoc-page))
-              )
-             @pagination-row)
-          {:class "pagination"})
-         {:colspan (+ (count actions-columns)
-                      (count (:projection columns))
-                    )})
-      )])
- )
+     (when-let [pagination pagination]
+       (tr
+         (th
+           (div
+             (let [current-page (:current-page pagination)
+                   rows (:rows pagination)
+                   total-row-count (:total-row-count pagination)
+                   first-page-index 0
+                   second-page-index 1
+                   number-of-pages (utils/round-up
+                                     total-row-count
+                                     rows)
+                   last-page-index (dec number-of-pages)
+                   one-before-last (dec last-page-index)
+                   assoc-page (fn [page]
+                               {:onclick
+                                {:evt-fn handle-paging
+                                 :evt-p {:conf conf
+                                         :pagination pagination
+                                         :page page}}})
+                   condition-i (< number-of-pages 4)
+                   condition-ii (= current-page
+                                   first-page-index)
+                   condition-iii (= current-page
+                                    last-page-index)
+                   pagination-row (atom nil)]
+               (when condition-i
+                 (reset!
+                   pagination-row
+                   (generate-pagination
+                     current-page
+                     number-of-pages
+                     0 ; bez prikaza
+                     assoc-page))
+                )
+               (when (and (not condition-i)
+                          condition-ii)
+                 (reset!
+                   pagination-row
+                   (generate-pagination
+                     current-page
+                     number-of-pages
+                     1 ; zadnja dva se prikazuju
+                     assoc-page))
+                )
+               (when (and (not condition-i)
+                          (not condition-ii)
+                          condition-iii)
+                 (reset!
+                   pagination-row
+                   (generate-pagination
+                     current-page
+                     number-of-pages
+                     2 ; prva dva se prikazuju
+                     assoc-page))
+                )
+               (when (and (not condition-i)
+                          (not condition-ii)
+                          (not condition-iii))
+                 (reset!
+                   pagination-row
+                   (generate-pagination
+                     current-page
+                     number-of-pages
+                     3 ; svi se prikazuju
+                     assoc-page))
+                )
+               @pagination-row)
+            {:class "pagination"})
+           {:colspan (+ (count actions-columns)
+                        (count (:projection columns))
+                      )})
+        ))]
+   ))
 
 (defn- generate-tbody
   "Generate tbody for table"
@@ -332,55 +335,51 @@
           projection (:projection columns)
           style (:style columns)]
       (doseq [entity entities]
-        (let [row-id (first entity)
-              entity (utils/remove-index-from-vector
-                       entity
-                       0)]
-         (swap!
-           trs
-           conj
-           (tr
-             (let [tds (atom [])]
-               (doseq [index (range (count projection))]         
-                 (let [column (get projection index)
-                       column-style (column style)
-                       content (get entity index)
-                       td-column (:td column-style)
-                       td-style (conj
-                                  default-th-td-style
-                                  (:style td-column))
-                       td-attrs (dissoc td-column :style)
-                       td-attrs (assoc td-attrs :title content)]
+        (let [row-id (:_id entity)]
+          (swap!
+            trs
+            conj
+            (tr
+              (let [tds (atom [])]
+                (doseq [column projection]
+                  (let [column-style (column style)
+                        content (column entity)
+                        td-column (:td column-style)
+                        td-style (conj
+                                   default-th-td-style
+                                   (:style td-column))
+                        td-attrs (dissoc td-column :style)
+                        td-attrs (assoc td-attrs :title content)]
+                   (swap!
+                     tds
+                     conj
+                     (td
+                       (div
+                         content
+                         {:style td-style})
+                      td-attrs))
+                   ))
+                (doseq [[content
+                         evt-fn
+                         evt-p] actions]
                   (swap!
                     tds
                     conj
                     (td
                       (div
-                        content
-                        {:style td-style})
-                     td-attrs))
-                  ))
-               (doseq [[content
-                        evt-fn
-                        evt-p] actions]
-                 (swap!
-                   tds
-                   conj
-                   (td
-                     (div 
-                       (input
-                         ""
-                         {:title content
-                          :type "button"
-                          :value content}
-                         {:onclick
-                           {:evt-fn evt-fn
-                            :evt-p (assoc evt-p
-                                          :ent-id row-id)}})
-                      ))
-                  ))
-               @tds))
-          ))
+                        (input
+                          ""
+                          {:title content
+                           :type "button"
+                           :value content}
+                          {:onclick
+                            {:evt-fn evt-fn
+                             :evt-p (assoc evt-p
+                                           :ent-id row-id)}})
+                       ))
+                   ))
+                @tds))
+           ))
        )
       @trs))
  )
@@ -1140,7 +1139,13 @@
         entity-type (:type entity)
         request-body {:entity-type entity-type
                       :entity-filter {ent-id-key ent-id}}
-        framework-default-error (:framework-default-error conf)]
+        framework-default-error (:framework-default-error conf)
+        conf (update-in
+               conf
+               [:query]
+               assoc
+               :entity-filter
+               {})]
    (ajax
      {:url delete-entity-url
       :request-method "DELETE"
@@ -1151,39 +1156,41 @@
  )
 
 (defn search-entities-fn
-  ""
+  "Search entities by fields from configuration"
   [ajax-params]
   (let [gen-table-fn (:gen-table-fn ajax-params)
         conf (:conf ajax-params)
         search-value (md/get-value
                        "#txtSearchTable")
-        query (:query conf)
-        query (let [search-fields (:search query)
+        query (let [search-fields (:search-fields conf)
                     or-vector (atom [])]
                 (doseq [search-field search-fields]
                   (swap!
                     or-vector
                     conj
-                    {search-field {"$regex" search-value}}))
+                    {search-field {"$regex" search-value
+                                   "$options" "i"}}))
                 (assoc
-                  query
+                  (:query conf)
                   :entity-filter
-                  {"$or" @or-vector}))]
+                  {"$or" @or-vector}))
+        conf (assoc
+               conf
+               :query
+               query
+               :search-call
+               true)]
     (gen-table-fn
-      (assoc
-        conf
-        :query
-        query
-        :search
-        true))
-   ))
+      conf))
+ )
 
 (defn- entity-table-success
   "Generate entity table after retrieving entities"
   [xhr
    ajax-params]
   (let [{conf :conf} ajax-params
-        search (:search ajax-params)
+        search-on (:search-on conf)
+        search-call (:search-call ajax-params)
         table-class (or (:table-class conf)
                         "entities")
         table-selector (str
@@ -1227,7 +1234,8 @@
          entity-delete
          conf]))
     (let [table-node (gen
-                       [(when (not search)
+                       [(when (and search-on
+                                   (not search-call))
                           (div
                             (table
                               (tr
@@ -1261,7 +1269,7 @@
                                  @actions-columns)])
                            {:class table-class}))]
                       )]
-      (if search
+      (if search-call
         (md/remove-element
           table-selector)
         (md/remove-element-content
@@ -1310,10 +1318,10 @@
                conf
                :framework-default-error
                framework-default-error)
-        search (:search conf)
+        search-call (:search-call conf)
         conf (dissoc
                conf
-               :search)]
+               :search-call)]
     (ajax
       {:url get-entities-url
        :success-fn entity-table-success
@@ -1321,6 +1329,6 @@
        :entity (:query conf)
        :conf conf
        :gen-table-fn gen-table
-       :search search}))
+       :search-call search-call}))
  )
 
