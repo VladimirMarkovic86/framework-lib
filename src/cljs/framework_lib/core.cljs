@@ -24,29 +24,278 @@
 (def delete-entity-url
      "/clojure/delete-entity")
 
-(def field-type-input
-     "input")
+(defn render-img
+  "Render uploaded image"
+  [{file-id :file-id
+    img-id :img-id
+    hidden-id :hidden-id}]
+  (let [file-field (md/query-selector
+                     (str
+                       "#"
+                       file-id))
+        file-field-parent (md/get-parent
+                            file-field)
+        file (aget (aget file-field "files") 0)
+        img (md/query-selector
+              (str
+                "#"
+                img-id))
+        hidden-input (md/query-selector
+                       (str
+                         "#"
+                         hidden-id))
+        fileReader (js/FileReader.)
+        onload (aset fileReader "onload"
+                 ((fn [aimg
+                       ahidden-input]
+                    (fn [e]
+                      (aset aimg "src" (aget (aget e "target") "result"))
+                      (aset ahidden-input "value" (aget (aget e "target") "result"))
+                     ))
+                    img
+                    hidden-input))
+        dataURL (.readAsDataURL fileReader file)]))
 
-(def field-type-radio
-     "radio")
+(defn image-field
+  "Render img html field and hidden input field"
+  [content
+   attrs
+   & [evts]]
+  (let [id (:id attrs)
+        data (:value attrs)
+        hidden-id (str
+                    "hidden"
+                    id)
+        file-id (str
+                  "file"
+                  id)
+        f-attrs (conj
+                  attrs
+                  {:id file-id
+                   :name file-id
+                   :type "file"})]
+    [(div
+       [(img
+          ""
+          {:id id
+           :name id
+           :style {:max-width "100px"
+                   :max-height "100px"}
+           :src data})
+        (input
+          ""
+          {:id hidden-id
+           :type "hidden"
+           :value data})])
+     (div
+       (input
+         ""
+         f-attrs
+         {:onchange {:evt-fn render-img
+                     :evt-p {:file-id file-id
+                             :img-id id
+                             :hidden-id hidden-id}}
+          }))]
+   ))
 
-(def field-type-checkbox
-     "checkbox")
+(defn select-field
+  "Render select field"
+  [content
+   attrs
+   evts]
+  (select
+    (let [options (atom [])]
+      (doseq [[opt-val
+               opt-lbl] content]
+        (swap!
+          options
+          conj
+          (option
+            opt-lbl
+            {:value opt-val}))
+       )
+      @options)
+    attrs))
 
-(def field-type-textarea
-     "textarea")
+(defn textarea-field
+  "Render select field"
+  [content
+   attrs
+   evts]
+  (if (and (seqable? content)
+           (empty? content))
+    (let [value (:value attrs)]
+      (textarea
+        value
+        attrs))
+    (textarea
+      content
+      attrs))
+ )
 
-(def field-type-select
-     "select")
+(def input-types
+     [{:type #{"text"
+               "date"
+               "password"
+               "number"
+               "email"
+               "radio"
+               "checkbox"}
+       :input-el input}
+      {:type #{"textarea"}
+       :input-el textarea-field}
+      {:type #{"select"}
+       :input-el select-field}
+      {:type #{"img"}
+       :input-el image-field}])
 
-(def sub-form
-     "sub-form")
+(defn find-input-fn
+  ""
+  [field-type
+   i]
+  (when (< i (count input-types))
+    (let [{input-types :type
+           input-el :input-el} (get input-types i)]
+      (if (contains?
+            input-types
+            field-type)
+        input-el
+        (recur
+          field-type
+          (inc i))
+       ))
+   ))
 
-(def popup
-     "popup")
+(defn generate-field
+  ""
+  [id
+   value
+   field-type
+   & [attrs
+      evts
+      options]]
+  (let [input-fn (find-input-fn
+                   field-type
+                   0)
+        attrs (conj
+                {:name id
+                 :type field-type}
+                attrs)]
+    (if-let [options options]
+      (let [html-options (atom [])]
+        (doseq [option options]
+          (let [attrs (assoc
+                        attrs
+                        :value
+                        option
+                        :id
+                        (str
+                          id
+                          option))
+                attrs (if (or (= value
+                                 option)
+                              (some
+                                #{option}
+                                value))
+                        (assoc
+                          attrs
+                          :checked
+                          "checked")
+                        attrs)]
+            (swap!
+              html-options
+              conj
+              (div
+                [(input-fn
+                   ""
+                   attrs
+                   evts)
+                 (label
+                   option)])
+             )
+           ))
+        @html-options)
+      (input-fn
+        ""
+        (assoc
+          attrs
+          :value
+          value
+          :id
+          id)
+        evts))
+   ))
 
-(def field-type-image
-     "image")
+(defn close-popup
+  "Close popup"
+  []
+  (md/remove-element
+    "#popup-window")
+  (md/remove-element
+    "#popup-background"))
+
+(defn popup-fn
+  "Append generated popup to body"
+  [{content :content
+    heading :heading}]
+  (md/append-element
+    "body"
+    (gen
+      (div
+         [(div
+            ""
+            {:style {:position "absolute"
+                     :width "100%"
+                     :height "100%"
+                     :opacity "0.2"
+                     :background-color "black"}})
+          (div
+            [(input
+               ""
+               {:id "close-btn"
+                :style {:float "right"
+                        :margin-top "10px"
+                        :border-radius "15px"
+                        :padding "0px 4px"}
+                :value "X"
+                :type "button"}
+               {:onclick {:evt-fn close-popup}})
+             (div
+               (h3
+                 heading)
+               {:id "popup-heading"
+                :style {:text-align "center"}})
+             (div
+               content
+               {:id "popup-content"})]
+            {:id "popup-window"
+             :style {:border "5px solid white"
+                     :border-radius "15px"
+                     :padding "0 15px 15px 15px"
+                     :z-index "0"
+                     :background-color "white"}})]
+         {:id "popup-background"
+          :style {:position "absolute"
+                  :width "100%"
+                  :height "100%"
+                  :top "0"
+                  :display "grid"
+                  :justify-content "center"
+                  :align-content "center"
+                  :color "black"
+                  :z-index 1}}))
+   ))
+
+(defn framework-default-error
+  ""
+  [xhr]
+  (let [response (get-response xhr)
+        message (:message response)
+        status (:status response)]
+    (popup-fn
+      {:heading status
+       :content message}))
+ )
 
 (def default-th-td-style
      {:width "auto"
@@ -59,11 +308,11 @@
 (defn- generate-ths
   "Generate th and append style for that th and td column"
   [columns
-   actions-columns]
+   actions]
   (let [ths (atom [])
         projection (:projection columns)
         style (:style columns)
-        actions (count actions-columns)]
+        actions (count actions)]
     (doseq [column projection]
       (let [column-style (column style)
             content (:content column-style)
@@ -72,8 +321,14 @@
                        default-th-td-style
                        (:style th-column))
             th-attrs (dissoc th-column :style)
-            th-attrs (when (not (contains? th-attrs :title))
-                      (assoc th-attrs :title content))]
+            th-attrs (when (not
+                             (contains?
+                               th-attrs
+                               :title))
+                       (assoc
+                         th-attrs
+                         :title
+                         content))]
         (swap!
           ths
           conj
@@ -100,8 +355,7 @@
     {query :query
      table-fn :table-fn} :conf
     pagination :pagination
-    page :page}
-   sl-node]
+    page :page}]
   (when (= page "first")
     (table-fn
       (update-in
@@ -242,14 +496,14 @@
   "Generate thead for table"
   [table-class
    columns
-   actions-columns
+   actions
    pagination
    conf]
   (thead
     [(tr
        (generate-ths
          columns
-         actions-columns))
+         actions))
      (when-let [pagination pagination]
        (tr
          (th
@@ -319,7 +573,7 @@
                 )
                @pagination-row)
             {:class "pagination"})
-           {:colspan (+ (count actions-columns)
+           {:colspan (+ (count actions)
                         (count (:projection columns))
                       )})
         ))]
@@ -359,9 +613,9 @@
                          {:style td-style})
                       td-attrs))
                    ))
-                (doseq [[content
-                         evt-fn
-                         evt-p] actions]
+                (doseq [{label :label
+                         evt-fn :evt-fn
+                         evt-p :evt-p} actions]
                   (swap!
                     tds
                     conj
@@ -369,13 +623,15 @@
                       (div
                         (input
                           ""
-                          {:title content
+                          {:title label
                            :type "button"
-                           :value content}
+                           :value label}
                           {:onclick
                             {:evt-fn evt-fn
-                             :evt-p (assoc evt-p
-                                           :ent-id row-id)}})
+                             :evt-p (assoc
+                                      evt-p
+                                      :ent-id
+                                      row-id)}})
                        ))
                    ))
                 @tds))
@@ -383,77 +639,6 @@
        )
       @trs))
  )
-
-(defn- input-field
-  "Render input field"
-  [data-type
-   data
-   label-txt
-   step
-   disabled]
-  (let [id (str
-             "txt"
-             label-txt)
-        attrs {:id id
-               :name id
-               :type data-type
-               :value data
-               :required "required"}
-        attrs (if step
-                (assoc attrs
-                       :step step)
-                attrs)
-        attrs (if disabled
-                (assoc attrs
-                       :disabled "disabled")
-                attrs)]
-   (input
-     ""
-     attrs))
- )
-
-(defn- radio-field
-  "Render radio field with different options"
-  [data
-   label-txt
-   options
-   disabled]
-  (let [rs (atom [])]
-    (doseq [option options]
-      (let [r-name (str "r"
-                        label-txt)
-            id (str r-name
-                    (md/replace-all option
-                                    " "
-                                    ""))
-            r-attrs {:id id
-                     :name r-name
-                     :type "radio"
-                     :value option
-                     :required "required"}
-            r-attrs (if (= data option)
-                     (assoc r-attrs
-                            :checked "checked")
-                     r-attrs)
-            r-attrs (if disabled
-                     (assoc r-attrs
-                            :disabled "disabled")
-                     r-attrs)
-            l-attrs {:id (str "lbl"
-                              id)
-                     :for id}]
-       (swap!
-         rs
-         conj
-         (div [(input
-                 ""
-                 r-attrs)
-               (label
-                 option
-                 l-attrs)])
-        ))
-     )
-    @rs))
 
 (defn- cb-checked?
   "Query current option if it is checked"
@@ -534,133 +719,6 @@
      )
     @cbs))
 
-(defn- textarea-field
-  "Render textarea field"
-  [data
-   label-txt
-   disabled]
-  (let [id (str
-             "ta"
-             label-txt)
-        attrs {:id id
-               :name id
-               :required "required"}
-        attrs (if disabled
-                (assoc attrs
-                       :disabled "disabled")
-                attrs)]
-    (textarea
-      data
-      attrs))
- )
-
-(defn- select-field
-  "Render select field"
-  [option-vector
-   label-txt
-   disabled]
-  (let [id (str
-             "sl"
-             label-txt)
-        sl-attrs {:id id
-                  :name id
-                  :required "required"}
-        sl-attrs (if disabled
-                   (assoc sl-attrs
-                          :disabled "disabled")
-                   sl-attrs)]
-   (select
-     (let [options (atom [])]
-       (doseq [[opt-val
-                opt-lbl] option-vector]
-         (swap! options conj (option opt-lbl
-                                     {:value opt-val}))
-        )
-       @options)
-     sl-attrs))
- )
-
-(defn- render-img
-  "Render uploaded image"
-  [{file-id :file-id
-    img-id :img-id
-    hidden-id :hidden-id}]
-  (let [file-field (md/query-selector
-                     (str
-                       "#"
-                       file-id))
-        file-field-parent (md/get-parent-node
-                            file-field)
-        file (aget (aget file-field "files") 0)
-        img (md/query-selector
-              (str
-                "#"
-                img-id))
-        hidden-input (md/query-selector
-                       (str
-                         "#"
-                         hidden-id))
-        fileReader (js/FileReader.)
-        onload (aset fileReader "onload"
-                 ((fn [aimg
-                       ahidden-input]
-                    (fn [e]
-                      (aset aimg "src" (aget (aget e "target") "result"))
-                      (aset ahidden-input "value" (aget (aget e "target") "result"))
-                     ))
-                    img
-                    hidden-input))
-        dataURL (.readAsDataURL fileReader file)]))
-
-(defn image-field
-  "Render img html field and hidden input field"
-  [data
-   label-txt
-   disabled
-   & [style-attrs]]
-  (let [img-id (str
-                 "img"
-                 label-txt)
-        hidden-id (str
-                    "hidden"
-                    label-txt)
-        file-id (str
-                  "file"
-                  label-txt)
-        attrs {:id file-id
-               :name file-id
-               :type "file"
-               :required "required"}
-        attrs (if disabled
-                (assoc attrs
-                       :disabled "disabled")
-                attrs)]
-    [(div
-       [(img
-          ""
-          {:id img-id
-           :name img-id
-           :style (conj 
-                    {:width "100px"
-                     :height "100px"}
-                    style-attrs)
-           :src data})
-        (input
-          ""
-          {:id hidden-id
-           :type "hidden"
-           :value data})])
-     (div
-       (input
-         ""
-         attrs
-         {:onchange {:evt-fn render-img
-                     :evt-p {:file-id file-id
-                             :img-id img-id
-                             :hidden-id hidden-id}}
-          }))]
-   ))
-
 (defn- insert-update-entity-success
   "After successful entity insert or update display table again"
   [xhr
@@ -670,170 +728,99 @@
 
 (defn- insert-update-entity
   "Insert or update entity"
-  [conf
-   sl-node]
+  [conf]
   (let [action (:action conf)
         form-conf (:form-conf conf)
         entity-type (:type form-conf)
         fields (:fields form-conf)
-        entity-keys (vec (keys fields))
+        entity-keys (keys fields)
         table-node (md/query-selector
                      ".entity")
-        request-body {:entity-type  entity-type}
-        input-element-id (md/query-selector-on-element
-                           table-node
-                           "#txt_id")
+        request-body {:entity-type entity-type}
+        hidden-id (md/query-selector-on-element
+                    table-node
+                    "#_id")
         entity-id (md/get-value
-                    input-element-id)
+                    hidden-id)
         entity (atom {})
-        specific-read-form (:specific-read-form form-conf)
-        framework-default-error (:framework-default-error conf)]
+        specific-read-form (:specific-read-form form-conf)]
     (if specific-read-form
       (specific-read-form
         entity)
       (doseq [e-key entity-keys]
         (let [field (e-key fields)
               label-txt (:label field)
-              field-type (:field-type field)
-              data-type (:data-type field)
-              id-prefix (case field-type
-                          "input" "txt"
-                          "radio" "r"
-                          "checkbox" "cb"
-                          "textarea" "ta"
-                          "image" "img"
-                          "")
-              element-id (str
-                           id-prefix
-                           (md/replace-all
-                             label-txt
-                             " "
-                             ""))]
-         (case field-type
-           "radio" (swap!
-                     entity
-                     conj
-                     {e-key (md/checked-value
-                              element-id)})
-           "checkbox" (swap!
-                        entity
-                        conj
-                        {e-key (md/cb-checked-values
-                                 element-id)})
-           (let [input-element (md/query-selector-on-element
-                                 table-node
-                                 (str
-                                   "#"
-                                   element-id))
-                 input-element-type (md/get-type
-                                      input-element)
-                 input-element-value (if (= field-type
-                                            "image")
-                                       (md/get-src
-                                         input-element)
-                                       (md/get-value
-                                         input-element))
-                 input-element-value (if (= input-element-type
-                                            "number")
-                                       (reader/read-string
-                                         input-element-value)
-                                       input-element-value)]
+              input-el (:input-el field)
+              id (name e-key)]
+          (when (= input-el
+                   "radio")
             (swap!
               entity
-              conj
-              {e-key input-element-value}))
-          ))
-       ))
+              assoc
+              e-key
+              (md/checked-value
+                id))
+           )
+          (when (= input-el
+                   "checkbox")
+            (swap!
+              entity
+              assoc
+              e-key
+              (md/cb-checked-values
+                id))
+           )
+         (when-let [input-element (md/query-selector-on-element
+                                    table-node
+                                    (str
+                                      "#"
+                                      id))]
+           (when (= input-el
+                    "img")
+             (swap!
+               entity
+               assoc
+               e-key
+               (md/get-src
+                 input-element))
+            )
+           (when (= input-el
+                    "number")
+             (swap!
+               entity
+               assoc
+               e-key
+               (reader/read-string
+                 (md/get-value
+                   input-element))
+              ))
+           (when (not
+                   (or (= input-el
+                          "img")
+                       (= input-el
+                          "number"))
+                  )
+             (swap!
+               entity
+               assoc
+               e-key
+               (md/get-value
+                 input-element))
+            ))
+         ))
+     )
     (ajax
-      {:url (if (= "Insert"
-                   action)
+      {:url (if (empty? entity-id)
               insert-entity-url
               update-entity-url)
        :success-fn insert-update-entity-success
        :error-fn framework-default-error
-       :entity (assoc request-body :entity @entity :_id entity-id)
+       :entity (assoc
+                 request-body
+                 :entity @entity
+                 :_id entity-id)
        :conf conf}))
  )
-
-(defn- popup-centered
-  "Center popup window"
-  [el]
-  (let [height (aget el "clientHeight")
-        width (aget el "clientWidth")]
-    (aset (aget el "style")
-          "top"
-          (str "calc("
-               "50% - "
-               (int (/ height
-                       2))
-               "px)"))
-    (aset (aget el "style")
-          "left"
-          (str "calc("
-               "50% - "
-               (int (/ width
-                       2))
-               "px)"))
-   ))
-
-(defn- close-popup
-  "Close popup"
-  []
-  (md/remove-element
-    "#popup-window")
-  (md/remove-element
-    "#popup-background"))
-
-(defn popup-fn
-  "Append generated popup to body"
-  [{content :content
-    heading :heading}]
-  (md/append-element
-    "body"
-    (gen
-      (div
-         [(div
-            ""
-            {:style {:position "absolute"
-                     :width "100%"
-                     :height "100%"
-                     :opacity "0.2"
-                     :background-color "black"}})
-          (div
-            [(input
-               ""
-               {:id "close-btn"
-                :style {:float "right"
-                        :margin-top "10px"
-                        :border-radius "15px"
-                        :padding "0px 4px"}
-                :value "X"
-                :type "button"}
-               {:onclick {:evt-fn close-popup}})
-             (div
-               (h3
-                 heading)
-               {:id "popup-heading"
-                :style {:text-align "center"}})
-             (div
-               content
-               {:id "popup-content"})]
-            {:id "popup-window"
-             :style {:border "5px solid white"
-                     :border-radius "15px"
-                     :padding "0 15px 15px 15px"
-                     :z-index "0"
-                     :background-color "white"}})]
-         {:id "popup-background"
-          :style {:position "absolute"
-                  :width "100%"
-                  :height "100%"
-                  :top "0"
-                  :display "grid"
-                  :justify-content "center"
-                  :align-content "center"
-                  :color "black"}}))
-   ))
 
 (defn- generate-form-trs
   "Generate form fields"
@@ -841,20 +828,26 @@
    {conf :conf
     {table-fn :table-fn
      form-type :form-type
-     actions :actions
+     disabled :disabled
      action :action
      action-fn :action-fn
-     action-fn-param :action-fn-param
+     action-p :action-p
      {entity-type :type
       fields :fields
       entity-keys :fields-order} :form-conf} :conf}]
-  (let [response (if-not (nil? xhr)
-                  (get-response xhr)
-                  nil)
+  (let [response (when-not (nil? xhr)
+                   (get-response xhr))
         entity-data (:data response)
-        disabled (if (= form-type "Details")
-                  true
-                  false)
+        conf (assoc
+               conf
+               :disabled
+               false)
+        conf (update-in
+               conf
+               [:query]
+               assoc
+               :entity-filter
+               {})
         trs (atom [])]
     (swap!
       trs
@@ -875,8 +868,8 @@
         (td
           (input
             ""
-            {:id "txt_id"
-             :name "txt_id"
+            {:id "_id"
+             :name "_id"
              :type "hidden"
              :value (:_id entity-data)})
           {:colspan 3}))
@@ -884,106 +877,54 @@
     (doseq [e-key entity-keys]
       (let [field-conf (e-key fields)
             label-txt (:label field-conf)
-            label-no-spaces (if (string? label-txt)
-                              (md/replace-all
-                                label-txt
-                                " "
-                                "")
-                              "lblDefault")
-            field-type (:field-type field-conf)
-            data-type (:data-type field-conf)
-            step (:step field-conf)
-            disabled (if (:disabled field-conf)
-                       (:disabled field-conf)
-                       disabled)
+            attrs (:attrs field-conf)
+            attrs (if disabled
+                    (assoc
+                      attrs
+                      :disabled
+                      true)
+                    attrs)
+            evts (:evts field-conf)
+            id (name e-key)
+            input-el (:input-el field-conf)
             options (:options field-conf)
             data (e-key entity-data)
-            sub-form-trs (:sub-form-trs field-conf)
-            popup-content (:popup field-conf)]
-        (when (= field-type
-                 sub-form)
+            sub-form-trs (:sub-form-trs field-conf)]
+        (when-let [sub-form-trs sub-form-trs]
           (doseq [sub-form-tr (sub-form-trs
                                 entity-data
-                                disabled)]
+                                attrs)]
             (swap!
               trs
               conj
               sub-form-tr))
          )
-        (when (= field-type
-                 popup)
+        (when (not sub-form-trs)
           (swap!
             trs
             conj
             (tr
-              [(td (label label-txt))
-               (td (input
-                     ""
-                     {:id (str "btn"
-                               label-no-spaces)
-                      :value "Change"
-                      :type "button"}
-                     {:onclick {:evt-fn popup-fn
-                                :evt-p
-                                 {:content popup-content
-                                  :heading label-txt}}
-                      }))
+              [(td
+                 (label
+                   label-txt
+                   {:id (str
+                          "lbl"
+                          id)})
+                )
                (td
-                 ""
-                 {:id (str "td"
-                           label-no-spaces)})]
-             ))
-         )
-        (when (and (not= field-type
-                         sub-form)
-                   (not= field-type
-                         popup))
-          (swap! trs conj
-            (tr
-              [(td (label
-                     label-txt
-                     {:id (str "lbl"
-                               label-no-spaces)
-                      :for (str "txt"
-                                label-no-spaces)}))
-               (td (if (= field-type
-                          field-type-input)
-                     (input-field data-type
-                                  data
-                                  label-no-spaces
-                                  step
-                                  disabled)
-                     (if (= field-type
-                            field-type-radio)
-                       (radio-field data
-                                    label-no-spaces
-                                    options
-                                    disabled)
-                       (if (= field-type
-                              field-type-checkbox)
-                         (checkbox-field data
-                                         label-no-spaces
-                                         options
-                                         disabled)
-                         (if (= field-type
-                                field-type-textarea)
-                           (textarea-field data
-                                           label-no-spaces
-                                           disabled)
-                           (if (= field-type
-                                  field-type-image)
-                             (image-field data
-                                          label-no-spaces
-                                          disabled)
-                             ""))
-                        ))
-                    ))
+                 (generate-field
+                   (name e-key)
+                   data
+                   input-el
+                   attrs
+                   evts
+                   options))
                (td
                  ""
                  {:id (str
                         "td"
-                        label-no-spaces)})]
-                ))
+                        id)})]
+             ))
          ))
      )
     (swap!
@@ -999,17 +940,7 @@
                {:onclick {:evt-fn table-fn
                           :evt-p conf}}))
            (td
-             (when (or (not= action
-                             "Edit")
-                       (and (= action
-                               "Edit")
-                            (contains?
-                              actions
-                              (keyword
-                                (.toLowerCase
-                                  action))
-                             ))
-                    )
+             (when true ; check if user is allowed particular action
                (input
                  ""
                  {:id (str "btn"
@@ -1017,8 +948,8 @@
                   :type "button"
                   :value action}
                  {:onclick {:evt-fn action-fn
-                            :evt-p (if action-fn-param
-                                     action-fn-param
+                            :evt-p (if action-p
+                                     action-p
                                      conf)}})
               ))
            (td)])
@@ -1029,13 +960,12 @@
   "Generate entity form"
   [xhr
    ajax-params]
-  (let [{{{entity-type :type} :form-conf} :conf} ajax-params
-        table-node (gen
+  (let [table-node (gen
                      (div
                        (table
                          (generate-form-trs
-                          xhr
-                          ajax-params))
+                           xhr
+                           ajax-params))
                        {:class "entity"}))]
    (md/remove-element-content
      ".content")
@@ -1046,18 +976,13 @@
 
 (defn- entity-form
   "Request data about particular entity for display, edit/update"
-  [conf
-   sl-node]
-  (let [from-details (:from-details conf)
-        conf (assoc conf :from-details nil)
-        ent-id (:ent-id conf)
+  [conf]
+  (let [ent-id (:ent-id conf)
         entity (:form-conf conf)
         ent-id-key (:id entity)
         entity-type (:type entity)
-        fields (:fields entity)
         request-body {:entity-type entity-type
-                      :entity-filter {ent-id-key ent-id}}
-        framework-default-error (:framework-default-error conf)]
+                      :entity-filter {ent-id-key ent-id}}]
     (ajax
       {:url get-entity-url
        :success-fn generate-form
@@ -1066,80 +991,79 @@
        :conf conf}))
  )
 
-(defn- create-entity
+(defn insert-action
+  ""
+  [conf]
+  (conj
+    conf
+    {:form-type "Create"
+     :action "Insert"
+     :action-fn insert-update-entity}))
+
+(defn create-entity
   "Call generate-form function with create entity parameters"
   [conf]
   (generate-form
     nil
     {:conf
-     (assoc
-       conf
-       :form-type "Create"
-       :action "Insert"
-       :action-fn insert-update-entity)})
+      (insert-action
+        conf)})
  )
 
-(defn- edit-entity-from-table
-  "Call entity-form function from generated entities table with edit entity parameters"
-  [conf
-   sl-node]
-  (entity-form
-    (assoc
-      conf
-      :form-type "Edit"
-      :action "Update"
-      :action-fn insert-update-entity)
-    sl-node))
+(defn update-action
+  ""
+  [conf]
+  (conj
+    conf
+    {:form-type "Edit"
+     :action "Update"
+     :action-fn insert-update-entity}))
 
-(defn- edit-entity-from-details
-  "Call entity-form function from generated details form with edit entity parameters"
-  [conf
-   sl-node]
+(defn edit-entity
+  "Call entity-form function"
+  [conf]
   (entity-form
-    (assoc
-      conf
-      :form-type "Edit"
-      :action "Update"
-      :action-fn insert-update-entity
-      :from-details true)
-    sl-node))
+    (update-action
+      conf))
+ )
 
-(defn- entity-details
+(defn edit-action
+  ""
+  [conf]
+  (conj
+    conf
+    {:form-type "Details"
+     :disabled true
+     :action "Edit"
+     :action-fn edit-entity
+     :action-p (update-action
+                 conf)})
+ )
+
+(defn entity-details
   "Call entity-form function from generated entities table with details entity parameters"
-  [conf
-   sl-node]
+  [conf]
   (entity-form
-    (assoc
-      conf
-      :form-type "Details"
-      :action "Edit"
-      :action-fn edit-entity-from-details
-      :action-fn-param
-        (assoc
-          conf
-          :form-type "Edit"
-          :action "Update"
-          :action-fn insert-update-entity))
-    sl-node))
+    (edit-action
+      conf))
+ )
 
-(defn- entity-delete-success
+(defn entity-delete-success
   "Entity delete success"
   [xhr
    {conf :conf
     {table-fn :table-fn} :conf}]
   (table-fn conf))
 
-(defn- entity-delete
+(defn entity-delete
   "Request entity to be deleted from server"
-  [conf
-   sl-node]
+  [conf]
   (let [entity (:form-conf conf)
         ent-id (:ent-id conf)
         ent-id-key (:id entity)
         entity-type (:type entity)
         request-body {:entity-type entity-type
                       :entity-filter {ent-id-key ent-id}}
-        framework-default-error (:framework-default-error conf)
         conf (update-in
                conf
                [:query]
@@ -1162,29 +1086,28 @@
         conf (:conf ajax-params)
         search-value (md/get-value
                        "#txtSearchTable")
-        query (let [search-fields (:search-fields conf)
+        conf (let [search-fields (:search-fields conf)
                     or-vector (atom [])]
-                (doseq [search-field search-fields]
-                  (swap!
-                    or-vector
-                    conj
-                    {search-field {"$regex" search-value
-                                   "$options" "i"}}))
-                (assoc
-                  (:query conf)
-                  :entity-filter
-                  {"$or" @or-vector}))
-        conf (assoc
-               conf
-               :query
-               query
-               :search-call
-               true)]
+               (doseq [search-field search-fields]
+                 (swap!
+                   or-vector
+                   conj
+                   {search-field {"$regex" search-value
+                                  "$options" "i"}}))
+               (update-in
+                 conf
+                 [:query]
+                 assoc
+                 :entity-filter
+                 {"$or" @or-vector}))]
     (gen-table-fn
-      conf))
+      conf
+      nil
+      nil
+      true))
  )
 
-(defn- entity-table-success
+(defn entity-table-success
   "Generate entity table after retrieving entities"
   [xhr
    ajax-params]
@@ -1201,38 +1124,30 @@
         response (get-response xhr)
         entities (:data response)
         pagination (:pagination response)
-        actions (:actions conf)
-        actions-columns (atom [])]
-    (when
-      (contains?
-        actions
-        :details)
-      (swap!
-        actions-columns
-        conj
-        ["details"
-         entity-details
-         conf]))
-    (when
-      (contains?
-        actions
-        :edit)
-      (swap!
-        actions-columns
-        conj
-        ["edit"
-         edit-entity-from-table
-         conf]))
-    (when
-      (contains?
-        actions
-        :delete)
-      (swap!
-        actions-columns
-        conj
-        ["delete"
-         entity-delete
-         conf]))
+        default-actions {:details {:label "details"
+                                   :evt-fn entity-details
+                                   :evt-p conf}
+                         :edit {:label "edit"
+                                :evt-fn edit-entity
+                                :evt-p conf}
+                         :delete {:label "delete"
+                                  :evt-fn entity-delete
+                                  :evt-p conf}}
+        actions-conf (:actions conf)
+        actions (atom [])]
+    (doseq [action actions-conf]
+      (if-let [action (get
+                        default-actions
+                        action)]
+        (swap!
+          actions
+          conj
+          action)
+        (swap!
+          actions
+          conj
+          action))
+     )
     (let [table-node (gen
                        [(when (and search-on
                                    (not search-call))
@@ -1260,13 +1175,13 @@
                               [(generate-thead
                                  table-class
                                  columns
-                                 @actions-columns
+                                 @actions
                                  pagination
                                  conf)
                                (generate-tbody
                                  entities
                                  columns
-                                 @actions-columns)])
+                                 @actions)])
                            {:class table-class}))]
                       )]
       (if search-call
@@ -1279,56 +1194,18 @@
         table-node))
    ))
 
-(defn framework-default-error
-  ""
-  [xhr]
-  (let [response (get-response xhr)
-        message (:message response)
-        status (:status response)]
-    (popup-fn
-      {:heading status
-       :content message}))
- )
-
 (defn gen-table
-  "Generate table with data
-  
-  cell-style     Represents vector of maps with attributes
-                  [{:content    \"Name\"
-                    :title      \"Name\"
-                    :header     [[\"width\"      \"100px\"]
-                                 [\"text-align\" \"center\"]]
-                    :column     [[\"width\"      \"100%\"]
-                                 [\"text-align\" \"left\"]]
-                    :colspan    2}]
-  data-vectors   Represents vector of vectors with n elements that represent
-                  values of table columns
-                   example of data format:
-                    [[\"data of column 1 row 1\"
-                      \"data of column 2 row 1\"
-                      {:title \"title of column 3 row 1\"
-                       :data  \"data of column 3 row 1\"}]
-                     [\"data of column 1 row 2\"
-                      \"data of column 2 row 2\"
-                      {:title \"title of column 3 row 2\"
-                       :data  \"data of column 3 row 2\"}]]
-  table-class    Represents class of div that contains table that will be generated"
-  [conf]
-  (let [conf (assoc
-               conf
-               :framework-default-error
-               framework-default-error)
-        search-call (:search-call conf)
-        conf (dissoc
-               conf
-               :search-call)]
-    (ajax
-      {:url get-entities-url
-       :success-fn entity-table-success
-       :error-fn framework-default-error
-       :entity (:query conf)
-       :conf conf
-       :gen-table-fn gen-table
-       :search-call search-call}))
- )
+  "Generate table with data"
+  [conf
+   & [sl-node
+      event
+      search-call]]
+  (ajax
+    {:url get-entities-url
+     :success-fn entity-table-success
+     :error-fn framework-default-error
+     :entity (:query conf)
+     :conf conf
+     :gen-table-fn gen-table
+     :search-call search-call}))
 
