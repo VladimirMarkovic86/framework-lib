@@ -7,7 +7,8 @@
                                       button label input div h3
                                       textarea select option img a]]
             [cljs.reader :as reader]
-            [clojure.string :as cstr]))
+            [clojure.string :as cstr]
+            [language-lib.core :refer [get-label]]))
 
 (def get-entities-url
      "/clojure/get-entities")
@@ -60,7 +61,8 @@
   "Render img html field and hidden input field"
   [content
    attrs
-   & [evts]]
+   & [evts
+      dyn-attrs]]
   (let [id (:id attrs)
         data (:value attrs)
         hidden-id (str
@@ -102,7 +104,8 @@
   "Render select field"
   [content
    attrs
-   evts]
+   evts
+   & [dyn-attrs]]
   (select
     (let [options (atom [])]
       (doseq [[opt-val
@@ -121,7 +124,8 @@
   "Render select field"
   [content
    attrs
-   evts]
+   evts
+   & [dyn-attrs]]
   (if (and (seqable? content)
            (empty? content))
     (let [value (:value attrs)]
@@ -215,16 +219,23 @@
              )
            ))
         @html-options)
-      (input-fn
-        ""
-        (assoc
-          attrs
-          :value
-          value
-          :id
-          id)
-        evts))
-   ))
+      (let [dyn-attrs (if (= field-type
+                             "number")
+                        {:valueAsNumber value}
+                        (if (= field-type
+                               "date")
+                          {:valueAsDate value}
+                          {:value value}))]
+        (input-fn
+          ""
+          (assoc
+            attrs
+            :id
+            id)
+          evts
+          dyn-attrs))
+     ))
+ )
 
 (defn close-popup
   "Close popup"
@@ -344,7 +355,7 @@
         conj
         (th
           (div
-            "Actions")
+            (get-label 9))
           {:colspan actions}))
      )
     @ths))
@@ -598,6 +609,12 @@
                 (doseq [column projection]
                   (let [column-style (column style)
                         content (column entity)
+                        content (if (= (type
+                                         content)
+                                       js/Date)
+                                  (.toLocaleString
+                                    content)
+                                  content)
                         td-column (:td column-style)
                         td-style (conj
                                    default-th-td-style
@@ -726,6 +743,30 @@
     {table-fn :table-fn} :conf}]
   (table-fn conf))
 
+(defn validate-field
+  ""
+  [input-element
+   validations
+   id]
+  (let [validity (aget
+                   input-element
+                   "validity")
+        valid (aget
+                validity
+                "valid")]
+    (when (not valid)
+      (swap!
+        validations
+        conj
+        [(str
+           "#td"
+           id)
+         (aget
+           input-element
+           "validationMessage")])
+     ))
+ )
+
 (defn- insert-update-entity
   "Insert or update entity"
   [conf]
@@ -743,7 +784,8 @@
         entity-id (md/get-value
                     hidden-id)
         entity (atom {})
-        specific-read-form (:specific-read-form form-conf)]
+        specific-read-form (:specific-read-form form-conf)
+        validations (atom [])]
     (if specific-read-form
       (specific-read-form
         entity)
@@ -751,7 +793,16 @@
         (let [field (e-key fields)
               label-txt (:label field)
               input-el (:input-el field)
-              id (name e-key)]
+              id (name e-key)
+              message-selector (str
+                                 "#td"
+                                 id)]
+          (let [message-el (md/query-selector-on-element
+                             ".entity"
+                             message-selector)]
+            (md/set-inner-html
+              message-el
+              ""))
           (when (= input-el
                    "radio")
             (swap!
@@ -760,7 +811,15 @@
               e-key
               (md/checked-value
                 id))
-           )
+            (validate-field
+              (md/query-selector-on-element
+                ".entity"
+                (str
+                  "input[name='"
+                  id
+                  "']"))
+              validations
+              id))
           (when (= input-el
                    "checkbox")
             (swap!
@@ -770,57 +829,86 @@
               (md/cb-checked-values
                 id))
            )
-         (when-let [input-element (md/query-selector-on-element
-                                    table-node
-                                    (str
-                                      "#"
-                                      id))]
-           (when (= input-el
-                    "img")
-             (swap!
-               entity
-               assoc
-               e-key
-               (md/get-src
-                 input-element))
-            )
-           (when (= input-el
-                    "number")
-             (swap!
-               entity
-               assoc
-               e-key
-               (reader/read-string
-                 (md/get-value
-                   input-element))
-              ))
-           (when (not
-                   (or (= input-el
-                          "img")
-                       (= input-el
-                          "number"))
-                  )
-             (swap!
-               entity
-               assoc
-               e-key
-               (md/get-value
-                 input-element))
-            ))
-         ))
-     )
-    (ajax
-      {:url (if (empty? entity-id)
-              insert-entity-url
-              update-entity-url)
-       :success-fn insert-update-entity-success
-       :error-fn framework-default-error
-       :entity (assoc
-                 request-body
-                 :entity @entity
-                 :_id entity-id)
-       :conf conf}))
- )
+          (when-let [input-element (md/query-selector-on-element
+                                     table-node
+                                     (str
+                                       "#"
+                                       id))]
+            (when (= input-el
+                     "img")
+              (swap!
+                entity
+                assoc
+                e-key
+                (md/get-src
+                  input-element))
+             )
+            (when (= input-el
+                     "number")
+              (swap!
+                entity
+                assoc
+                e-key
+                (md/get-value-as-number
+                  input-element))
+              (validate-field
+                input-element
+                validations
+                id))
+            (when (= input-el
+                     "date")
+              (swap!
+                entity
+                assoc
+                e-key
+                (md/get-value-as-date
+                  input-element))
+              (validate-field
+                input-element
+                validations
+                id))
+            (when (not
+                    (or (= input-el
+                           "img")
+                        (= input-el
+                           "number")
+                        (= input-el
+                           "date"))
+                   )
+              (swap!
+                entity
+                assoc
+                e-key
+                (md/get-value
+                  input-element))
+              (validate-field
+                input-element
+                validations
+                id))
+           ))
+       ))
+    (if (empty? @validations)
+      (ajax
+        {:url (if (empty? entity-id)
+                insert-entity-url
+                update-entity-url)
+         :success-fn insert-update-entity-success
+         :error-fn framework-default-error
+         :entity (assoc
+                   request-body
+                   :entity @entity
+                   :_id entity-id)
+         :conf conf})
+      (doseq [[message-selector
+               validation-message] @validations]
+        (let [message-el (md/query-selector-on-element
+                           ".entity"
+                           message-selector)]
+          (md/set-inner-html
+            message-el
+            validation-message))
+       ))
+   ))
 
 (defn- generate-form-trs
   "Generate form fields"
@@ -833,9 +921,12 @@
      action-fn :action-fn
      action-p :action-p
      {entity-type :type
+      entity-name :entity-name
       fields :fields
       entity-keys :fields-order} :form-conf} :conf}]
-  (let [response (when-not (nil? xhr)
+  (let [entity-name (or entity-name
+                        entity-type)
+        response (when-not (nil? xhr)
                    (get-response xhr))
         entity-data (:data response)
         conf (assoc
@@ -858,7 +949,7 @@
             (str
               form-type
               " "
-              entity-type))
+              entity-name))
           {:colspan 3}))
      )
     (swap!
@@ -923,7 +1014,8 @@
                  ""
                  {:id (str
                         "td"
-                        id)})]
+                        id)
+                  :class "validationMessage"})]
              ))
          ))
      )
@@ -935,7 +1027,7 @@
                ""
                {:id "btnCancel"
                 :type "button"
-                :value "Cancel"
+                :value (get-label 12)
                 :style {:float "right"}}
                {:onclick {:evt-fn table-fn
                           :evt-p conf}}))
@@ -996,8 +1088,8 @@
   [conf]
   (conj
     conf
-    {:form-type "Create"
-     :action "Insert"
+    {:form-type (get-label 4)
+     :action (get-label 10)
      :action-fn insert-update-entity}))
 
 (defn create-entity
@@ -1015,8 +1107,8 @@
   [conf]
   (conj
     conf
-    {:form-type "Edit"
-     :action "Update"
+    {:form-type (get-label 7)
+     :action (get-label 11)
      :action-fn insert-update-entity}))
 
 (defn edit-entity
@@ -1032,9 +1124,9 @@
   [conf]
   (conj
     conf
-    {:form-type "Details"
+    {:form-type (get-label 6)
      :disabled true
-     :action "Edit"
+     :action (get-label 7)
      :action-fn edit-entity
      :action-p (update-action
                  conf)})
@@ -1124,13 +1216,13 @@
         response (get-response xhr)
         entities (:data response)
         pagination (:pagination response)
-        default-actions {:details {:label "details"
+        default-actions {:details {:label (get-label 6)
                                    :evt-fn entity-details
                                    :evt-p conf}
-                         :edit {:label "edit"
+                         :edit {:label (get-label 7)
                                 :evt-fn edit-entity
                                 :evt-p conf}
-                         :delete {:label "delete"
+                         :delete {:label (get-label 8)
                                   :evt-fn entity-delete
                                   :evt-p conf}}
         actions-conf (:actions conf)
@@ -1156,7 +1248,8 @@
                               (tr
                                 [(td
                                    (label
-                                     "Search:"))
+                                     (get-label 13))
+                                  )
                                  (td
                                    (input
                                      ""
