@@ -332,14 +332,14 @@
                        default-th-td-style
                        (:style th-column))
             th-attrs (dissoc th-column :style)
-            th-attrs (when (not
-                             (contains?
+            th-attrs (if-not (contains?
                                th-attrs
-                               :title))
+                               :title)
                        (assoc
                          th-attrs
                          :title
-                         content))]
+                         content)
+                       th-attrs)]
         (swap!
           ths
           conj
@@ -356,8 +356,9 @@
         (th
           (div
             (get-label 9))
-          {:colspan actions}))
-     )
+          {:colspan actions
+           :title (get-label 9)})
+       ))
     @ths))
 
 (defn- handle-paging
