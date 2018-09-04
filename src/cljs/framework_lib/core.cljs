@@ -128,7 +128,7 @@
    & [dyn-attrs]]
   (if (and (seqable? content)
            (empty? content))
-    (let [value (:value attrs)]
+    (let [value (:value dyn-attrs)]
       (textarea
         value
         attrs))
@@ -186,20 +186,31 @@
                  :type field-type}
                 attrs)]
     (if-let [options options]
-      (let [html-options (atom [])]
-        (doseq [option options]
-          (let [attrs (assoc
+      (let [html-options (atom [])
+            options-a (atom options)]
+        (when (fn? options)
+          (reset!
+            options-a
+            (options))
+         )
+        (doseq [option @options-a]
+          (let [[op-label
+                 op-value] (if (vector? option)
+                             option
+                             [option
+                              option])
+                attrs (assoc
                         attrs
                         :value
-                        option
+                        op-value
                         :id
                         (str
                           id
-                          option))
+                          op-value))
                 attrs (if (or (= value
-                                 option)
+                                 op-value)
                               (some
-                                #{option}
+                                #{op-value}
                                 value))
                         (assoc
                           attrs
@@ -215,9 +226,9 @@
                    attrs
                    evts)
                  (label
-                   option)])
-             )
-           ))
+                   op-label)])
+             ))
+         )
         @html-options)
       (let [dyn-attrs (if (= field-type
                              "number")
@@ -919,8 +930,10 @@
      form-type :form-type
      disabled :disabled
      action :action
+     action-label :action-label
      action-fn :action-fn
      action-p :action-p
+     allowed-actions :allowed-actions
      {entity-type :type
       entity-name :entity-name
       fields :fields
@@ -1033,13 +1046,30 @@
                {:onclick {:evt-fn table-fn
                           :evt-p conf}}))
            (td
-             (when true ; check if user is allowed particular action
+             (when (or (and (= action
+                               :insert)
+                            (contains?
+                              allowed-actions
+                              (str
+                                entity-type
+                                "-create"))
+                        )
+                       (and (or (= action
+                                   :edit)
+                                (= action
+                                   :update))
+                            (contains?
+                              allowed-actions
+                              (str
+                                entity-type
+                                "-update"))
+                        ))
                (input
                  ""
                  {:id (str "btn"
-                           action)
+                           action-label)
                   :type "button"
-                  :value action}
+                  :value action-label}
                  {:onclick {:evt-fn action-fn
                             :evt-p (if action-p
                                      action-p
@@ -1090,7 +1120,8 @@
   (conj
     conf
     {:form-type (get-label 4)
-     :action (get-label 10)
+     :action :insert
+     :action-label (get-label 10)
      :action-fn insert-update-entity}))
 
 (defn create-entity
@@ -1109,7 +1140,8 @@
   (conj
     conf
     {:form-type (get-label 7)
-     :action (get-label 11)
+     :action :update 
+     :action-label (get-label 11)
      :action-fn insert-update-entity}))
 
 (defn edit-entity
@@ -1127,7 +1159,8 @@
     conf
     {:form-type (get-label 6)
      :disabled true
-     :action (get-label 7)
+     :action :edit
+     :action-label (get-label 7)
      :action-fn edit-entity
      :action-p (update-action
                  conf)})
@@ -1226,21 +1259,49 @@
                          :delete {:label (get-label 8)
                                   :evt-fn entity-delete
                                   :evt-p conf}}
-        actions-conf (:actions conf)
+        actions-conf (atom
+                       (:actions conf))
+        allowed-actions (:allowed-actions conf)
+        entity-type (get-in conf [:form-conf :type])
         actions (atom [])]
-    (doseq [action actions-conf]
-      (if-let [action (get
-                        default-actions
-                        action)]
-        (swap!
-          actions
-          conj
-          action)
-        (swap!
-          actions
-          conj
-          action))
-     )
+    (doseq [action @actions-conf]
+      (if-let [action-map (get
+                            default-actions
+                            action)]
+        (when (or (and (= action
+                          :details)
+                       (contains?
+                         allowed-actions
+                         (str
+                           entity-type
+                           "-read"))
+                   )
+                  (and (= action
+                          :edit)
+                       (contains?
+                         allowed-actions
+                         (str
+                           entity-type
+                           "-update"))
+                   )
+                  (and (= action
+                          :delete)
+                       (contains?
+                         allowed-actions
+                         (str
+                           entity-type
+                           "-delete"))
+                   ))
+          (swap!
+            actions
+            conj
+            action-map))
+        (when action
+          (swap!
+            actions
+            conj
+            action))
+       ))
     (let [table-node (gen
                        [(when (and search-on
                                    (not search-call))
@@ -1262,7 +1323,7 @@
                          )
                         (if (empty? entities)
                           (div
-                            "No entities"
+                            (get-label 31)
                             {:class table-class})
                           (div
                             (table
