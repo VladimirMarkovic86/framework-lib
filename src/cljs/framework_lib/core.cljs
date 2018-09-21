@@ -8,22 +8,8 @@
                                       textarea select option img a]]
             [cljs.reader :as reader]
             [clojure.string :as cstr]
-            [language-lib.core :refer [get-label]]))
-
-(def get-entities-url
-     "/clojure/get-entities")
-
-(def get-entity-url
-     "/clojure/get-entity")
-
-(def update-entity-url
-     "/clojure/update-entity")
-
-(def insert-entity-url
-     "/clojure/insert-entity")
-
-(def delete-entity-url
-     "/clojure/delete-entity")
+            [language-lib.core :refer [get-label]]
+            [common-middle.request-urls :as rurls]))
 
 (defn render-img
   "Render uploaded image"
@@ -902,8 +888,8 @@
     (if (empty? @validations)
       (ajax
         {:url (if (empty? entity-id)
-                insert-entity-url
-                update-entity-url)
+                rurls/insert-entity-url
+                rurls/update-entity-url)
          :success-fn insert-update-entity-success
          :error-fn framework-default-error
          :entity (assoc
@@ -1107,7 +1093,7 @@
         request-body {:entity-type entity-type
                       :entity-filter {ent-id-key ent-id}}]
     (ajax
-      {:url get-entity-url
+      {:url rurls/get-entity-url
        :success-fn generate-form
        :error-fn framework-default-error
        :entity request-body
@@ -1197,7 +1183,7 @@
                :entity-filter
                {})]
    (ajax
-     {:url delete-entity-url
+     {:url rurls/delete-entity-url
       :request-method "DELETE"
       :success-fn entity-delete-success
       :error-fn framework-default-error
@@ -1356,7 +1342,7 @@
       event
       search-call]]
   (ajax
-    {:url get-entities-url
+    {:url rurls/get-entities-url
      :success-fn entity-table-success
      :error-fn framework-default-error
      :entity (:query conf)
