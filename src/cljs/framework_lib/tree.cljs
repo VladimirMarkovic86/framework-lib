@@ -4,7 +4,7 @@
             [clojure.string :as cstring]))
 
 (defn highlight-doc-name
-  ""
+  "Highlight document"
   [evt-p
    element
    event]
@@ -19,7 +19,7 @@
     "highlightDoc"))
 
 (defn expand-dir
-  ""
+  "Expand content of directory"
   [{get-subdocs :get-subdocs
     get-subfile :get-subfile
     absolute-path :absolute-path
@@ -152,7 +152,7 @@
  )
 
 (defn render-tree
-  ""
+  "Render tree of projects"
   [projects
    get-subdocs
    get-subfile

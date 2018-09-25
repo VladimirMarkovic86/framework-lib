@@ -140,7 +140,7 @@
        :input-el image-field}])
 
 (defn find-input-fn
-  ""
+  "Find fn that generates right input field type"
   [field-type
    i]
   (when (< i (count input-types))
@@ -157,7 +157,7 @@
    ))
 
 (defn generate-field
-  ""
+  "Generate input field of particular type"
   [id
    value
    field-type
@@ -295,7 +295,7 @@
    ))
 
 (defn framework-default-error
-  ""
+  "Framework default error function"
   [xhr]
   (let [response (get-response xhr)
         message (:message response)
@@ -742,7 +742,7 @@
   (table-fn conf))
 
 (defn validate-field
-  ""
+  "Read validation attributes of particular fields"
   [input-element
    validations
    id]
@@ -1101,7 +1101,7 @@
  )
 
 (defn insert-action
-  ""
+  "Insert action configuration"
   [conf]
   (conj
     conf
@@ -1121,7 +1121,7 @@
  )
 
 (defn update-action
-  ""
+  "Update action configuration"
   [conf]
   (conj
     conf
@@ -1139,7 +1139,7 @@
  )
 
 (defn edit-action
-  ""
+  "Edit action configuration"
   [conf]
   (conj
     conf
