@@ -1199,25 +1199,33 @@
         search-value (md/get-value
                        "#txtSearchTable")
         conf (let [search-fields (:search-fields conf)
-                    or-vector (atom [])]
+                   or-vector (atom [])]
                (doseq [search-field search-fields]
                  (swap!
                    or-vector
                    conj
-                   {search-field {"$regex" search-value
-                                  "$options" "i"}}))
+                   {:attr-key search-field
+                    :attr-value {:contains search-value}}))
                (update-in
                  conf
                  [:query]
                  assoc
                  :entity-filter
-                 {"$or" @or-vector}))]
+                 {:or @or-vector}))]
     (gen-table-fn
       conf
       nil
       nil
       true))
  )
+
+#_(find-by-filter
+  "test"
+  {:or
+    [{:attr-key :surname
+      :attr-value {:contains "Markovic"}}]}
+  [:name :surname]
+  {:name 1})
 
 (defn entity-table-success
   "Generate entity table after retrieving entities"
