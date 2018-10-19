@@ -1204,28 +1204,20 @@
                  (swap!
                    or-vector
                    conj
-                   {:attr-key search-field
-                    :attr-value {:contains search-value}}))
+                   {search-field {"$regex" search-value
+                                  "$options" "i"}}))
                (update-in
                  conf
                  [:query]
                  assoc
                  :entity-filter
-                 {:or @or-vector}))]
+                 {"$or" @or-vector}))]
     (gen-table-fn
       conf
       nil
       nil
       true))
  )
-
-#_(find-by-filter
-  "test"
-  {:or
-    [{:attr-key :surname
-      :attr-value {:contains "Markovic"}}]}
-  [:name :surname]
-  {:name 1})
 
 (defn entity-table-success
   "Generate entity table after retrieving entities"
