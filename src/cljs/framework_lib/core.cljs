@@ -1323,7 +1323,7 @@
                         (if (empty? entities)
                           (div
                             (get-label 31)
-                            {:class table-class})
+                            {:class "noResults"})
                           (div
                             (table
                               [(generate-thead
