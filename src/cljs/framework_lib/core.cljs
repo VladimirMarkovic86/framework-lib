@@ -192,7 +192,11 @@
                         :id
                         (str
                           id
-                          op-value))
+                          (md/replace-all
+                            op-value
+                            " "
+                            ""))
+                       )
                 attrs (if (or (= value
                                  op-value)
                               (some
@@ -628,7 +632,8 @@
                          {:style td-style})
                       td-attrs))
                    ))
-                (doseq [{label :label
+                (doseq [{clazz :class
+                         label :label
                          evt-fn :evt-fn
                          evt-p :evt-p} actions]
                   (swap!
@@ -638,7 +643,8 @@
                       (div
                         (input
                           ""
-                          {:title label
+                          {:class clazz
+                           :title label
                            :type "button"
                            :value label}
                           {:onclick
@@ -1052,8 +1058,12 @@
                         ))
                (input
                  ""
-                 {:id (str "btn"
-                           action-label)
+                 {:id (str
+                        "btn"
+                        (cstr/capitalize
+                          (name
+                            action))
+                       )
                   :type "button"
                   :value action-label}
                  {:onclick {:evt-fn action-fn
@@ -1236,13 +1246,16 @@
         response (get-response xhr)
         entities (:data response)
         pagination (:pagination response)
-        default-actions {:details {:label (get-label 6)
+        default-actions {:details {:class "details"
+                                   :label (get-label 6)
                                    :evt-fn entity-details
                                    :evt-p conf}
-                         :edit {:label (get-label 7)
+                         :edit {:class "edit"
+                                :label (get-label 7)
                                 :evt-fn edit-entity
                                 :evt-p conf}
-                         :delete {:label (get-label 8)
+                         :delete {:class "delete"
+                                  :label (get-label 8)
                                   :evt-fn entity-delete
                                   :evt-p conf}}
         actions-conf (atom
