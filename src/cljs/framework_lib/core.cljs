@@ -1175,7 +1175,13 @@
   [xhr
    {conf :conf
     {table-fn :table-fn} :conf}]
-  (table-fn conf))
+  (let [conf (assoc
+               conf
+               :after-delete
+               true)]
+    (table-fn
+      conf))
+ )
 
 (defn entity-delete
   "Request entity to be deleted from server"
@@ -1234,6 +1240,14 @@
   [xhr
    ajax-params]
   (let [{conf :conf} ajax-params
+        after-delete (:after-delete conf)
+        conf (dissoc
+               conf
+               :after-delete)
+        ajax-params (assoc
+                      ajax-params
+                      :conf
+                      conf)
         search-on (:search-on conf)
         search-call (:search-call ajax-params)
         table-class (or (:table-class conf)
@@ -1322,20 +1336,30 @@
                          )
                         (if (empty? entities)
                           (div
-                            (get-label 31)
-                            {:class "noResults"})
+                            [(div
+                               (get-label 31)
+                               {:class "noResults"})
+                             (when after-delete
+                               (div
+                                 ""
+                                 {:class "afterDelete"}))]
+                            {:class table-class})
                           (div
-                            (table
-                              [(generate-thead
-                                 table-class
-                                 columns
-                                 @actions
-                                 pagination
-                                 conf)
-                               (generate-tbody
-                                 entities
-                                 columns
-                                 @actions)])
+                            [(table
+                               [(generate-thead
+                                  table-class
+                                  columns
+                                  @actions
+                                  pagination
+                                  conf)
+                                (generate-tbody
+                                  entities
+                                  columns
+                                  @actions)])
+                             (when after-delete
+                               (div
+                                 ""
+                                 {:class "afterDelete"}))]
                            {:class table-class}))]
                       )]
       (if search-call
