@@ -50,7 +50,8 @@
    & [evts
       dyn-attrs]]
   (let [id (:id attrs)
-        data (:value attrs)
+        data (or (:value attrs)
+                 (:value dyn-attrs))
         hidden-id (str
                     "hidden"
                     id)
@@ -788,109 +789,116 @@
         entity-id (md/get-value
                     hidden-id)
         entity (atom {})
-        specific-read-form (:specific-read-form form-conf)
         validations (atom [])]
-    (if specific-read-form
-      (specific-read-form
-        entity)
-      (doseq [e-key entity-keys]
-        (let [field (e-key fields)
-              label-txt (:label field)
-              input-el (:input-el field)
-              id (name e-key)
-              message-selector (str
-                                 "#td"
-                                 id)]
-          (let [message-el (md/query-selector-on-element
-                             ".entity"
-                             message-selector)]
-            (md/set-inner-html
-              message-el
-              ""))
+    (doseq [e-key entity-keys]
+      (let [field (e-key fields)
+            label-txt (:label field)
+            input-el (:input-el field)
+            sub-form-trs-read (:sub-form-trs-read field)
+            sub-form-validation (:sub-form-validation field)
+            id (name e-key)
+            message-selector (str
+                               "#td"
+                               id)]
+        (let [message-el (md/query-selector-on-element
+                           ".entity"
+                           message-selector)]
+          (md/set-inner-html
+            message-el
+            ""))
+        (when (= input-el
+                 "radio")
+          (swap!
+            entity
+            assoc
+            e-key
+            (md/checked-value
+              id))
+          (validate-field
+            (md/query-selector-on-element
+              ".entity"
+              (str
+                "input[name='"
+                id
+                "']"))
+            validations
+            id))
+        (when (= input-el
+                 "checkbox")
+          (swap!
+            entity
+            assoc
+            e-key
+            (md/cb-checked-values
+              id))
+         )
+        (when (= input-el
+                 "sub-form")
+          (swap!
+            entity
+            assoc
+            e-key
+            (sub-form-trs-read))
+          (sub-form-validation
+            validations))
+        (when-let [input-element (md/query-selector-on-element
+                                   table-node
+                                   (str
+                                     "#"
+                                     id))]
           (when (= input-el
-                   "radio")
+                   "img")
             (swap!
               entity
               assoc
               e-key
-              (md/checked-value
-                id))
+              (md/get-src
+                input-element))
+           )
+          (when (= input-el
+                   "number")
+            (swap!
+              entity
+              assoc
+              e-key
+              (md/get-value-as-number
+                input-element))
             (validate-field
-              (md/query-selector-on-element
-                ".entity"
-                (str
-                  "input[name='"
-                  id
-                  "']"))
+              input-element
               validations
               id))
           (when (= input-el
-                   "checkbox")
+                   "date")
             (swap!
               entity
               assoc
               e-key
-              (md/cb-checked-values
-                id))
-           )
-          (when-let [input-element (md/query-selector-on-element
-                                     table-node
-                                     (str
-                                       "#"
-                                       id))]
-            (when (= input-el
-                     "img")
-              (swap!
-                entity
-                assoc
-                e-key
-                (md/get-src
-                  input-element))
-             )
-            (when (= input-el
-                     "number")
-              (swap!
-                entity
-                assoc
-                e-key
-                (md/get-value-as-number
-                  input-element))
-              (validate-field
-                input-element
-                validations
-                id))
-            (when (= input-el
-                     "date")
-              (swap!
-                entity
-                assoc
-                e-key
-                (md/get-value-as-date
-                  input-element))
-              (validate-field
-                input-element
-                validations
-                id))
-            (when (not
-                    (or (= input-el
-                           "img")
-                        (= input-el
-                           "number")
-                        (= input-el
-                           "date"))
-                   )
-              (swap!
-                entity
-                assoc
-                e-key
-                (md/get-value
-                  input-element))
-              (validate-field
-                input-element
-                validations
-                id))
-           ))
-       ))
+              (md/get-value-as-date
+                input-element))
+            (validate-field
+              input-element
+              validations
+              id))
+          (when (not
+                  (or (= input-el
+                         "img")
+                      (= input-el
+                         "number")
+                      (= input-el
+                         "date"))
+                 )
+            (swap!
+              entity
+              assoc
+              e-key
+              (md/get-value
+                input-element))
+            (validate-field
+              input-element
+              validations
+              id))
+         ))
+     )
     (if (empty? @validations)
       (ajax
         {:url (if (empty? entity-id)
@@ -914,7 +922,7 @@
        ))
    ))
 
-(defn- generate-form-trs
+(defn generate-form-trs
   "Generate form fields"
   [xhr
    {conf :conf
@@ -1075,7 +1083,7 @@
      )
     @trs))
 
-(defn- generate-form
+(defn generate-form
   "Generate entity form"
   [xhr
    ajax-params]
