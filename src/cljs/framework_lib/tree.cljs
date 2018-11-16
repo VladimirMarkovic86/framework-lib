@@ -8,12 +8,24 @@
   [evt-p
    element
    event]
-  (when-let [highlighted-doc (md/query-selector-on-element
-                               ".tree"
-                               ".highlightDoc")]
-    (md/remove-class
-      highlighted-doc
-      "highlightDoc"))
+  (let [is-ctrl-pressed (.-ctrlKey
+                          event)
+        is-selected (cstring/index-of
+                      (.-className
+                        (.-target
+                          event))
+                      "highlightDoc")]
+    (when (and (not is-selected)
+               (not is-ctrl-pressed))
+      (when-let [highlighted-docs (md/query-selector-all-on-element
+                                    ".tree"
+                                    ".highlightDoc")]
+        (doseq [highlighted-doc highlighted-docs]
+          (md/remove-class
+            highlighted-doc
+            "highlightDoc"))
+       ))
+   )
   (md/add-class
     element
     "highlightDoc"))
@@ -65,7 +77,8 @@
                       parent
                       ".subareaEmpty")
             subarea-content (atom [])]
-        (doseq [sub-dir sub-dirs]
+        (doseq [[is-changed
+                 sub-dir] sub-dirs]
           (swap!
             subarea-content
             conj
@@ -77,7 +90,11 @@
                     {:onclick dir-event})
                   (div
                     sub-dir
-                    {:class "docName"}
+                    {:class
+                      (str
+                        "docName"
+                        (when is-changed
+                          " changed"))}
                     {:ondblclick dir-event
                      :onclick highlight-event
                      :oncontextmenu [highlight-event
@@ -91,7 +108,8 @@
                  ""
                  {:class "subareaEmpty"})])
            ))
-        (doseq [sub-file sub-files]
+        (doseq [[is-changed
+                 sub-file] sub-files]
           (swap!
             subarea-content
             conj
@@ -101,7 +119,12 @@
                  {:class "sign"})
                (div
                  sub-file
-                 {:class "docName"}
+                 {:class
+                   (str
+                     "docName"
+                     (when is-changed
+                       " changed"))
+                  }
                  {:ondblclick {:evt-fn get-subfile
                                :evt-p {:absolute-path current-dir
                                        :file-name sub-file}}
@@ -164,7 +187,8 @@
              version :version
              absolute-path :absolute-path
              language :language
-             project-type :project-type} projects]
+             project-type :project-type
+             changed :changed} projects]
       (let [path-vector (cstring/split
                           absolute-path
                           "/")
@@ -178,7 +202,9 @@
                    :evt-p {:get-subdocs get-subdocs
                            :get-subfile get-subfile
                            :absolute-path parent-absolute-path
-                           :context-menu-evt context-menu-evt}}]
+                           :context-menu-evt context-menu-evt}}
+            changedClass (when changed
+                           "changed")]
         (swap!
           div-projects
           conj
@@ -190,7 +216,9 @@
                   {:onclick event})
                 (div
                   root-dir
-                  {:class "docName rootDoc"}
+                  {:class (str
+                            "docName rootDoc "
+                            changedClass)}
                   {:ondblclick event
                    :onclick {:evt-fn highlight-doc-name}
                    :oncontextmenu [{:evt-fn highlight-doc-name}
