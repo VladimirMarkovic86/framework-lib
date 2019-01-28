@@ -1,4 +1,4 @@
-(defproject org.clojars.vladimirmarkovic86/framework-lib "0.2.11"
+(defproject org.clojars.vladimirmarkovic86/framework-lib "0.2.12"
   :description "Framework library"
   :url "https://github.com/VladimirMarkovic86/framework-lib"
   :license {:name "Eclipse Public License"

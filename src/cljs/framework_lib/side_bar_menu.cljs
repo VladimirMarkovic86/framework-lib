@@ -2,6 +2,13 @@
   (:require [js-lib.core :as md]
             [htmlcss-lib.core :refer [div]]))
 
+(def clear-content-section
+     (atom
+       (fn []
+         (md/remove-element-content
+           ".content"))
+      ))
+
 (defn collapse-all-items
   "Collapses all open items"
   []
@@ -97,6 +104,7 @@
               "expand"))
          ))
      ))
+  (@clear-content-section)
   (when (fn?
           evt-fn)
     (evt-fn
@@ -213,7 +221,18 @@
 
 (defn final-menu
   "Return html clojure maps of the side bar menu"
-  [menu-vector]
+  [menu-vector
+   & [clear-fn
+      clear-fn-p]]
+  (when (fn?
+          clear-fn)
+    (reset!
+      clear-content-section
+      (fn []
+        (clear-fn
+          {:evt-p clear-fn-p
+           :collapse false}))
+     ))
   (let [html-maps-menu (generate-menu
                          menu-vector
                          0)]
