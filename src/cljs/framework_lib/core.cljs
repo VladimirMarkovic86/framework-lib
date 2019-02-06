@@ -111,12 +111,15 @@
        )
       (doseq [option-el content]
         (let [[opt-lbl
-               opt-val] (if (vector?
+               opt-val
+               opt-title] (if (vector?
                               option-el)
-                          option-el
-                          [option-el
-                           option-el])
-              opt-attrs {:value opt-val}
+                            option-el
+                            [option-el
+                             option-el
+                             option-el])
+              opt-attrs {:value opt-val
+                         :title opt-title}
               opt-attrs (if (and data
                                  (or (and (string?
                                             data)
@@ -376,6 +379,10 @@
    actions]
   (let [ths (atom [])
         projection (:projection columns)
+        display-fields (:display-fields columns)
+        projection (if display-fields
+                     display-fields
+                     projection)
         style (:style columns)
         actions (count actions)]
     (doseq [column projection]
@@ -697,10 +704,13 @@
            {:colspan (+ (count
                           actions)
                         (count
-                          (:projection columns))
-                      )})
-        ))]
-   ))
+                          (if (:display-fields columns)
+                            (:display-fields columns)
+                            (:projection columns))
+                         ))}
+          ))
+      )])
+ )
 
 (def entity-to-show-all
      "entityToShowAll")
@@ -790,6 +800,10 @@
   (tbody
     (let [trs (atom [])
           projection (:projection columns)
+          display-fields (:display-fields columns)
+          projection (if display-fields
+                       display-fields
+                       projection)
           style (:style columns)]
       (doseq [entity entities]
         (let [row-id (:_id entity)]
@@ -803,6 +817,18 @@
                                        style)
                         content (column
                                   entity)
+                        content (if (= column
+                                       :label-code)
+                                  (let [label-code (:label-code entity)
+                                        original-field (:original-field column-style)]
+                                    (if (and label-code
+                                             (< 0
+                                                label-code))
+                                      (get-label
+                                        label-code)
+                                      (original-field entity))
+                                   )
+                                  content)
                         labels (:labels column-style)
                         content (if labels
                                   (let [selected-set (cset/select
