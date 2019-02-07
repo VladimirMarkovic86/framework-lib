@@ -367,7 +367,23 @@
   [xhr]
   (let [response (get-response xhr)
         message (:message response)
-        status (:status response)]
+        status (:status response)
+        message-code (:message-code response)
+        status-code (:status-code response)
+        message (if (and (utils/is-number?
+                           message-code)
+                         (pos?
+                           message-code))
+                  (get-label
+                    message-code)
+                  message)
+        status (if (and (utils/is-number?
+                          status-code)
+                        (pos?
+                          status-code))
+                 (get-label
+                   status-code)
+                 status)]
     (popup-fn
       {:heading status
        :content message}))
