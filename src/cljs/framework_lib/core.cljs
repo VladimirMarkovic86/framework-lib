@@ -1,5 +1,5 @@
 (ns framework-lib.core
-  (:require [ajax-lib.core :refer [ajax get-response]]
+  (:require [ajax-lib.core :refer [ajax get-response base-url]]
             [js-lib.core :as md]
             [utils-lib.core :as utils]
             [htmlcss-lib.core :refer [gen table thead tbody tr th td
@@ -12,6 +12,8 @@
             [language-lib.core :refer [get-label]]
             [validator-lib.core :refer [validate-field validate-input]]
             [common-middle.request-urls :as rurls]
+            [common-middle.session :as cms]
+            [common-middle.functionalities :as fns]
             [framework-lib.side-bar-menu :as sbm]))
 
 (defn render-img
@@ -1209,6 +1211,7 @@
      action-fn :action-fn
      action-p :action-p
      allowed-actions :allowed-actions
+     reports-on :reports-on
      {entity-type :type
       entity-name :entity-name
       fields :fields
@@ -1247,6 +1250,36 @@
          :name "_id"
          :type "hidden"
          :value (:_id entity-data)})
+     )
+    (when (and reports-on
+               (= form-type
+                  (get-label 6))
+               (contains?
+                 allowed-actions
+                 fns/reports))
+      (swap!
+        fieldset-content
+        conj
+        (div
+          nil
+          {:style {:height "10px"}})
+        (div
+          (a
+            (div
+              nil
+              {:class
+                (str
+                  @cms/selected-language
+                  "-page-report report-icon")})
+            {:target "_blank"
+             :href (str
+                     @base-url
+                     rurls/reports-url
+                     "?report=single"
+                     "&entity=" entity-type
+                     "&id=" (:_id entity-data)
+                     "&language=" @cms/selected-language)})
+          {:class "report-links"}))
      )
     (doseq [e-key entity-keys]
       (let [field-conf (e-key fields)
@@ -1554,6 +1587,7 @@
         table-selector (str
                          "."
                          table-class)
+        reports-on (:reports-on conf)
         columns (:columns conf)
         render-in (:render-in conf)
         response (get-response xhr)
@@ -1630,6 +1664,44 @@
                                  {:onkeyup {:evt-fn search-entities-fn
                                             :evt-p ajax-params}})])
                             {:class "search"}))
+                        (when (and reports-on
+                                   (not search-call)
+                                   (contains?
+                                     allowed-actions
+                                     fns/reports))
+                          (div
+                            [(a
+                               (div
+                                 nil
+                                 {:class
+                                   (str
+                                     @cms/selected-language
+                                     "-full-report report-icon")})
+                               {:target "_blank"
+                                :href (str
+                                        @base-url
+                                        rurls/reports-url
+                                        "?report=table"
+                                        "&entity=" entity-type
+                                        "&page=-1"
+                                        "&language=" @cms/selected-language)})
+                             (a
+                               (div
+                                 nil
+                                 {:class
+                                   (str
+                                     @cms/selected-language
+                                     "-page-report report-icon")})
+                               {:target "_blank"
+                                :href (str
+                                        @base-url
+                                        rurls/reports-url
+                                        "?report=table"
+                                        "&entity=" entity-type
+                                        "&page=" (:current-page pagination)
+                                        "&language=" @cms/selected-language)})
+                             ]
+                            {:class "report-links"}))
                         (if (empty?
                               entities)
                           (div
