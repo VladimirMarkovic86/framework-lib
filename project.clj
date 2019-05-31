@@ -1,4 +1,4 @@
-(defproject org.clojars.vladimirmarkovic86/framework-lib "0.2.34"
+(defproject org.clojars.vladimirmarkovic86/framework-lib "0.2.35"
   :description "Framework library"
   :url "https://github.com/VladimirMarkovic86/framework-lib"
   :license {:name "Eclipse Public License"
@@ -8,9 +8,9 @@
                  [org.clojars.vladimirmarkovic86/htmlcss-lib "0.1.6"]
                  [org.clojars.vladimirmarkovic86/js-lib "0.1.13"]
                  [org.clojars.vladimirmarkovic86/utils-lib "0.4.9"]
-                 [org.clojars.vladimirmarkovic86/language-lib "0.2.26"]
+                 [org.clojars.vladimirmarkovic86/language-lib "0.2.27"]
                  [org.clojars.vladimirmarkovic86/common-middle "0.2.7"]
-                 [org.clojars.vladimirmarkovic86/validator-lib "0.1.24"]
+                 [org.clojars.vladimirmarkovic86/validator-lib "0.1.25"]
                  ]
 
   :min-lein-version "2.0.0"
