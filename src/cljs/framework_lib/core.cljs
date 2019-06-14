@@ -5,9 +5,9 @@
             [htmlcss-lib.core :refer [gen table thead tbody tr th td
                                       label input div h3 textarea
                                       select option img a fieldset
-                                      legend form span]]
+                                      legend form span svg rect]]
             [cljs.reader :as reader]
-            [clojure.string :as cstr]
+            [clojure.string :as cstring]
             [clojure.set :as cset]
             [language-lib.core :refer [get-label]]
             [validator-lib.core :refer [validate-field validate-input]]
@@ -15,6 +15,15 @@
             [common-middle.session :as cms]
             [common-middle.functionalities :as fns]
             [framework-lib.side-bar-menu :as sbm]))
+
+(def read-preferences-a-fn
+     (atom nil))
+
+(def save-preferences-a-fn
+     (atom nil))
+
+(def is-called-read-preferences-a
+     (atom false))
 
 (defn render-img
   "Render uploaded image"
@@ -402,9 +411,11 @@
                      display-fields
                      projection)
         style (:style columns)
-        actions (count actions)]
+        actions (count
+                  actions)]
     (doseq [column projection]
-      (let [column-style (column style)
+      (let [column-style (column
+                           style)
             content (:content column-style)
             th-attrs (:th column-style)
             th-attrs (if-not (contains?
@@ -635,6 +646,379 @@
      )
     @page-vector))
 
+(defn switch-view
+  "Switches table view to card view"
+  [evt-p
+   element
+   event]
+  (let [{conf :conf
+         new-card-columns :new-card-columns
+         new-table-rows :new-table-rows} evt-p
+        {table-fn :table-fn
+         query-fn :query-fn
+         {card-columns-a :card-columns-a
+          table-rows-a :table-rows-a} :preferences} conf
+        void (reset!
+               card-columns-a
+               (or new-card-columns
+                   @card-columns-a))
+        void (reset!
+               table-rows-a
+               (or new-table-rows
+                   @table-rows-a))
+        conf (assoc
+               conf
+               :query
+               (query-fn))]
+    (table-fn
+      conf)
+    (when (fn?
+            @save-preferences-a-fn)
+      (@save-preferences-a-fn))
+   ))
+
+(defn svg-table-icon
+  "Creates clojure maps for svg table icon"
+  [& [evt
+      entity-name]]
+  (svg
+    [(rect
+       nil
+       {:width "24"
+        :height "6"
+        :y "11"
+        :x "2"})]
+    {:width "28"
+     :height "28"
+     :selected-value "0"}
+    evt))
+
+(defn svg-one-column-icon
+  "Creates clojure maps for svg one column icon"
+  [& [evt]]
+  (svg
+    [(rect
+       nil
+       {:width "24"
+        :height "24"
+        :y "2"
+        :x "2"})]
+    {:width "28"
+     :height "28"
+     :selected-value "1"}
+    evt))
+
+(defn svg-two-column-icon
+  "Creates clojure maps for svg two columns icon"
+  [& [evt]]
+  (svg
+    [(rect
+       nil
+       {:width "11"
+        :height "24"
+        :y "2"
+        :x "2"})
+     (rect
+       nil
+       {:width "11"
+        :height "24"
+        :y "2"
+        :x "15"})]
+    {:width "28"
+     :height "28"
+     :selected-value "2"}
+    evt))
+
+(defn svg-three-column-icon
+  "Creates clojure maps for svg three columns icon"
+  [& [evt]]
+  (svg
+    [(rect
+       nil
+       {:width "6"
+        :height "24"
+        :y "2"
+        :x "2"})
+     (rect
+       nil
+       {:width "6"
+        :height "24"
+        :y "2"
+        :x "11"})
+     (rect
+       nil
+       {:width "6"
+        :height "24"
+        :y "2"
+        :x "20"})]
+    {:width "28"
+     :height "28"
+     :selected-value "3"}
+    evt))
+
+(defn svg-four-column-icon
+  "Creates clojure maps for svg four columns icon"
+  [& [evt]]
+  (svg
+    [(rect
+       nil
+       {:width "5"
+        :height "24"
+        :y "2"
+        :x "1"})
+     (rect
+       nil
+       {:width "5"
+        :height "24"
+        :y "2"
+        :x "8"})
+     (rect
+       nil
+       {:width "5"
+        :height "24"
+        :y "2"
+        :x "15"})
+     (rect
+       nil
+       {:width "5"
+        :height "24"
+        :y "2"
+        :x "22"})]
+    {:width "28"
+     :height "28"
+     :selected-value "4"}
+    evt))
+
+(defn svg-five-column-icon
+  "Creates clojure maps for svg five columns icon"
+  [& [evt]]
+  (svg
+    [(rect
+       nil
+       {:width "3"
+        :height "24"
+        :y "2"
+        :x "2"})
+     (rect
+       nil
+       {:width "3"
+        :height "24"
+        :y "2"
+        :x "7"})
+     (rect
+       nil
+       {:width "3"
+        :height "24"
+        :y "2"
+        :x "12"})
+     (rect
+       nil
+       {:width "3"
+        :height "24"
+        :y "2"
+        :x "17"})
+     (rect
+       nil
+       {:width "3"
+        :height "24"
+        :y "2"
+        :x "22"})]
+    {:width "28"
+     :height "28"
+     :selected-value "5"}
+    evt))
+
+(defn generate-row-number-dropdown-options
+  "Generates row number dropdown options"
+  [conf]
+  (let [options-vector [1 2 3 4 5 10 20 25 50 100]
+        div-options-vector (atom [])]
+    (doseq [option options-vector]
+      (swap!
+        div-options-vector
+        conj
+        (div
+          (str
+            "x" option)
+          nil
+          {:onclick {:evt-fn switch-view
+                     :evt-p {:conf conf
+                             :new-card-columns nil
+                             :new-table-rows option}}
+           }))
+     )
+    @div-options-vector))
+
+(defn generate-pagination-bar
+  "Generates clojure maps that represent pagination bar"
+  [pagination
+   conf]
+  (div
+    [(div
+       (div
+         (let [current-page (:current-page pagination)
+               rows (:rows pagination)
+               total-row-count (:total-row-count pagination)
+               first-page-index 0
+               second-page-index 1
+               number-of-pages (utils/round-up
+                                 total-row-count
+                                 rows)
+               last-page-index (dec
+                                 number-of-pages)
+               one-before-last (dec
+                                 last-page-index)
+               assoc-page (fn [page]
+                            {:onclick
+                              {:evt-fn handle-paging
+                               :evt-p {:conf conf
+                                       :pagination pagination
+                                       :page page}}
+                             })
+               condition-i (< number-of-pages
+                              4)
+               condition-ii (= current-page
+                               first-page-index)
+               condition-iii (= current-page
+                                last-page-index)
+               pagination-row (atom nil)]
+           (when condition-i
+             (reset!
+               pagination-row
+               (generate-pagination
+                 current-page
+                 number-of-pages
+                 0 ; bez prikaza
+                 assoc-page))
+            )
+           (when (and (not condition-i)
+                      condition-ii)
+             (reset!
+               pagination-row
+               (generate-pagination
+                 current-page
+                 number-of-pages
+                 1 ; zadnja dva se prikazuju
+                 assoc-page))
+            )
+           (when (and (not condition-i)
+                      (not condition-ii)
+                      condition-iii)
+             (reset!
+               pagination-row
+               (generate-pagination
+                 current-page
+                 number-of-pages
+                 2 ; prva dva se prikazuju
+                 assoc-page))
+            )
+           (when (and (not condition-i)
+                      (not condition-ii)
+                      (not condition-iii))
+             (reset!
+               pagination-row
+               (generate-pagination
+                 current-page
+                 number-of-pages
+                 3 ; svi se prikazuju
+                 assoc-page))
+            )
+           @pagination-row)
+        {:class "pagination"})
+       {:class "pagination-container"})
+     (div
+       [(div
+          (case (deref
+                  (get-in
+                    conf
+                    [:preferences
+                     :card-columns-a]))
+            0 (svg-table-icon)
+            1 (svg-one-column-icon)
+            2 (svg-two-column-icon)
+            3 (svg-three-column-icon)
+            4 (svg-four-column-icon)
+            5 (svg-five-column-icon)
+            (svg-table-icon))
+          {:class "dropdown-selection dropdown-selection-columns"})
+        (div
+          [(svg-table-icon
+             {:onclick {:evt-fn switch-view
+                        :evt-p {:conf conf
+                                :new-card-columns 0
+                                :new-table-rows nil}}
+              })
+           (svg-one-column-icon
+             {:onclick {:evt-fn switch-view
+                        :evt-p {:conf conf
+                                :new-card-columns 1
+                                :new-table-rows nil}}
+              })
+           (svg-two-column-icon
+             {:onclick {:evt-fn switch-view
+                        :evt-p {:conf conf
+                                :new-card-columns 2
+                                :new-table-rows nil}}
+              })
+           (svg-three-column-icon
+             {:onclick {:evt-fn switch-view
+                        :evt-p {:conf conf
+                                :new-card-columns 3
+                                :new-table-rows nil}}
+              })
+           (svg-four-column-icon
+             {:onclick {:evt-fn switch-view
+                        :evt-p {:conf conf
+                                :new-card-columns 4
+                                :new-table-rows nil}}
+              })
+           (svg-five-column-icon
+             {:onclick {:evt-fn switch-view
+                        :evt-p {:conf conf
+                                :new-card-columns 5
+                                :new-table-rows nil}}
+              })
+           ]
+          {:class "dropdown-menu dropdown-menu-columns"})]
+       {:class "dropdown-container dropdown-container-columns"})
+     (div
+       [(div
+          (case (deref
+                  (get-in
+                    conf
+                    [:preferences
+                     :table-rows-a]))
+            1 (div
+                "x1")
+            2 (div
+                "x2")
+            3 (div
+                "x3")
+            4 (div
+                "x4")
+            5 (div
+                "x5")
+            10 (div
+                "x10")
+            20 (div
+                "x20")
+            25 (div
+                "x25")
+            50 (div
+                "x50")
+            100 (div
+                  "x100")
+            (div
+              "x?"))
+          {:class "dropdown-selection dropdown-selection-rows"})
+        (div
+          (generate-row-number-dropdown-options
+            conf)
+          {:class "dropdown-menu dropdown-menu-rows"})]
+       {:class "dropdown-container dropdown-container-rows"})
+     ]
+    {:class "pagination-bar"}))
+
 (defn generate-thead
   "Generate thead for table"
   [table-class
@@ -650,75 +1034,9 @@
      (when-let [pagination pagination]
        (tr
          (th
-           (div
-             (let [current-page (:current-page pagination)
-                   rows (:rows pagination)
-                   total-row-count (:total-row-count pagination)
-                   first-page-index 0
-                   second-page-index 1
-                   number-of-pages (utils/round-up
-                                     total-row-count
-                                     rows)
-                   last-page-index (dec
-                                     number-of-pages)
-                   one-before-last (dec
-                                     last-page-index)
-                   assoc-page (fn [page]
-                                {:onclick
-                                  {:evt-fn handle-paging
-                                   :evt-p {:conf conf
-                                           :pagination pagination
-                                           :page page}}
-                                 })
-                   condition-i (< number-of-pages 4)
-                   condition-ii (= current-page
-                                   first-page-index)
-                   condition-iii (= current-page
-                                    last-page-index)
-                   pagination-row (atom nil)]
-               (when condition-i
-                 (reset!
-                   pagination-row
-                   (generate-pagination
-                     current-page
-                     number-of-pages
-                     0 ; bez prikaza
-                     assoc-page))
-                )
-               (when (and (not condition-i)
-                          condition-ii)
-                 (reset!
-                   pagination-row
-                   (generate-pagination
-                     current-page
-                     number-of-pages
-                     1 ; zadnja dva se prikazuju
-                     assoc-page))
-                )
-               (when (and (not condition-i)
-                          (not condition-ii)
-                          condition-iii)
-                 (reset!
-                   pagination-row
-                   (generate-pagination
-                     current-page
-                     number-of-pages
-                     2 ; prva dva se prikazuju
-                     assoc-page))
-                )
-               (when (and (not condition-i)
-                          (not condition-ii)
-                          (not condition-iii))
-                 (reset!
-                   pagination-row
-                   (generate-pagination
-                     current-page
-                     number-of-pages
-                     3 ; svi se prikazuju
-                     assoc-page))
-                )
-               @pagination-row)
-            {:class "pagination"})
+           (generate-pagination-bar
+             pagination
+             conf)
            {:colspan (+ (count
                           actions)
                         (count
@@ -762,9 +1080,16 @@
             new-selected-element (md/query-selector-on-element
                                    show-all-menu-item
                                    ":first-child")]
-        (reset!
-          active-element
-          new-selected-element))
+        (if show-all-menu-item
+          (reset!
+            active-element
+            new-selected-element)
+          (reset!
+            active-element
+            (md/query-selector-on-element
+              create-menu-item
+              ":first-child"))
+         ))
      )
     (when (= menu-change
              show-all-to-entity)
@@ -774,10 +1099,14 @@
                                parent-element)
             entity-menu-item (.-previousElementSibling
                                create-menu-item)]
-        (reset!
-          active-element
-          entity-menu-item))
-     )
+        (if entity-menu-item
+          (reset!
+            active-element
+            entity-menu-item)
+          (reset!
+            active-element
+            create-menu-item))
+       ))
     (when (= menu-change
              no-change)
       (reset!
@@ -809,6 +1138,34 @@
       element
       event))
  )
+
+(defn format-date
+  "Formats date depending on selected language"
+  [date
+   month
+   year]
+  (let [result (atom "")]
+    (when (= @cms/selected-language
+             "english")
+      (swap!
+        result
+        str
+        month
+        "/"
+        date
+        "/"
+        year))
+    (when (= @cms/selected-language
+             "serbian")
+      (swap!
+        result
+        str
+        date
+        "."
+        month
+        "."
+        year))
+    @result))
 
 (defn generate-tbody
   "Generate tbody for table"
@@ -877,8 +1234,14 @@
                         content (if (= (type
                                          content)
                                        js/Date)
-                                  (.toLocaleString
-                                    content)
+                                  (format-date
+                                    (.getDate
+                                      content)
+                                    (inc
+                                      (.getMonth
+                                        content))
+                                    (.getFullYear
+                                      content))
                                   content)
                         td-attrs (:td column-style)
                         td-attrs (assoc
@@ -921,6 +1284,185 @@
        )
       @trs))
  )
+
+(defn escape-html-tags
+  "Escapes html tags from < and > into &lt; and &gt;"
+  [value]
+  (if (and value
+           (string?
+             value))
+    (let [value (cstring/replace
+                  value
+                  "<"
+                  "&lt;")
+          value (cstring/replace
+                  value
+                  ">"
+                  "&gt;")]
+      value)
+    value))
+
+(defn generate-card-view
+  "Generates card view from entities"
+  [pagination
+   conf
+   entities
+   columns
+   actions]
+  (let [card-columns-a (get-in
+                         conf
+                         [:preferences
+                          :card-columns-a])
+        card-columns (if (instance?
+                           Atom
+                           card-columns-a)
+                       @card-columns-a
+                       3)
+        card-container-vector (atom [])]
+    (doseq [entity entities]
+      (let [projection (:projection columns)
+            display-fields (:display-fields columns)
+            projection (if display-fields
+                         display-fields
+                         projection)
+            row-id (:_id entity)
+            card-content-vector (atom [])
+            card-action-vector (atom [])]
+        (doseq [column projection]
+          (let [style (:style columns)
+                column-style (column
+                               style)
+                property-name (:content column-style)
+                property-value (column
+                                 entity)
+                property-value (if (= column
+                                      :label-code)
+                                 (let [label-code (:label-code entity)
+                                       original-field (:original-field column-style)]
+                                   (if (and label-code
+                                            (< 0
+                                               label-code))
+                                     (get-label
+                                       label-code)
+                                     (original-field entity))
+                                  )
+                                 property-value)
+                labels (:labels column-style)
+                property-value (if labels
+                                 (let [selected-set (cset/select
+                                                      (fn [[label-txt
+                                                            value]]
+                                                        (and property-value
+                                                             (or
+                                                               (and (string?
+                                                                      property-value)
+                                                                    (= (.toLowerCase
+                                                                         property-value)
+                                                                       (.toLowerCase
+                                                                         value))
+                                                                )
+                                                               (and (coll?
+                                                                      property-value)
+                                                                    (some
+                                                                      #{value}
+                                                                      property-value))
+                                                              ))
+                                                       )
+                                                      labels)
+                                       [label-txt
+                                        value] (first
+                                                 selected-set)]
+                                   label-txt)
+                                 property-value)
+                property-value (if (= (type
+                                        property-value)
+                                      js/Date)
+                                 (format-date
+                                   (.getDate
+                                     property-value)
+                                   (inc
+                                     (.getMonth
+                                       property-value))
+                                   (.getFullYear
+                                     property-value))
+                                 property-value)]
+            (swap!
+              card-content-vector
+              conj
+              (div
+                [(div
+                   (escape-html-tags
+                     property-name)
+                   {:class "card-property-name"
+                    :title property-name})
+                 (div
+                   (escape-html-tags
+                     property-value)
+                   {:class "card-property-value"
+                    :title property-value})]
+                {:class "card-property"}))
+           ))
+        (doseq [{label-txt :label
+                 clazz :class
+                 evt-fn :evt-fn
+                 evt-p :evt-p
+                 menu-change :menu-change} actions]
+          (swap!
+            card-action-vector
+            conj
+            (div
+              label-txt
+              {:class (str
+                        "card-action "
+                        clazz)
+               :title label-txt}
+              {:onclick
+                {:evt-fn handle-selected-menu-item
+                 :evt-p {:evt-fn evt-fn
+                         :evt-p (assoc
+                                  evt-p
+                                  :ent-id
+                                  row-id)
+                         :menu-change menu-change}}
+               }))
+         )
+        (swap!
+          card-content-vector
+          conj
+          (div
+            @card-action-vector
+            {:class "card-actions"}))
+        (swap!
+          card-container-vector
+          conj
+          (div
+            (div
+              [(div
+                 nil
+                 {:class "card-heading"})
+               (div
+                 @card-content-vector
+                 {:class "card-content"})]
+              {:class "card"})
+            {:class (case card-columns
+                      1 "card-wrapper-1"
+                      2 "card-wrapper-2"
+                      3 "card-wrapper-3"
+                      4 "card-wrapper-4"
+                      5 "card-wrapper-5"
+                      "card-wrapper-3")})
+         ))
+     )
+    (gen
+      (div
+        [(generate-pagination-bar
+           pagination
+           conf)
+         (div
+           @card-container-vector
+           {:class "card-container"})]
+        {:class "card-view"}))
+   ))
 
 (defn cb-checked?
   "Query current option if it is checked"
@@ -1372,7 +1914,7 @@
             ""
             {:id (str
                    "btn"
-                   (cstr/capitalize
+                   (cstring/capitalize
                      (name
                        action))
                   )
@@ -1453,12 +1995,16 @@
 (defn create-entity
   "Call generate-form function with create entity parameters"
   [conf]
-  (generate-form
-    nil
-    {:conf
-      (insert-action
-        conf)})
- )
+  (let [conf (if (fn?
+                   conf)
+               (conf)
+               conf)]
+    (generate-form
+      nil
+      {:conf
+        (insert-action
+          conf)})
+   ))
 
 (defn update-action
   "Update action configuration"
@@ -1606,8 +2152,13 @@
                          :delete {:label (get-label 8)
                                   :evt-fn entity-delete
                                   :evt-p conf
-                                   :class "delete"
+                                  :class "delete"
                                   :menu-change no-change}}
+        card-columns-a (or (get-in
+                             conf
+                             [:preferences
+                              :card-columns-a])
+                           (atom false))
         actions-conf (atom
                        (:actions conf))
         allowed-actions (:allowed-actions conf)
@@ -1714,17 +2265,25 @@
                                  {:class "after-delete"}))]
                             {:class table-class})
                           (div
-                            [(table
-                               [(generate-thead
-                                  table-class
-                                  columns
-                                  @actions
-                                  pagination
-                                  conf)
-                                (generate-tbody
-                                  entities
-                                  columns
-                                  @actions)])
+                            [(if (= @card-columns-a
+                                    0)
+                               (table
+                                 [(generate-thead
+                                    table-class
+                                    columns
+                                    @actions
+                                    pagination
+                                    conf)
+                                  (generate-tbody
+                                    entities
+                                    columns
+                                    @actions)])
+                               (generate-card-view
+                                 pagination
+                                 conf
+                                 entities
+                                 columns
+                                 @actions))
                              (when after-delete
                                (div
                                  ""; Delete message should be here
@@ -1747,12 +2306,25 @@
    & [sl-node
       event
       search-call]]
-  (ajax
-    {:url rurls/get-entities-url
-     :success-fn entity-table-success
-     :error-fn framework-default-error
-     :entity (:query conf)
-     :conf conf
-     :gen-table-fn gen-table
-     :search-call search-call}))
+  (when-not @is-called-read-preferences-a
+    (when (fn?
+            @read-preferences-a-fn)
+      (@read-preferences-a-fn)
+      (reset!
+        is-called-read-preferences-a
+        true))
+   )
+  (let [conf (if (fn?
+                   conf)
+               (conf)
+               conf)]
+    (ajax
+      {:url rurls/get-entities-url
+       :success-fn entity-table-success
+       :error-fn framework-default-error
+       :entity (:query conf)
+       :conf conf
+       :gen-table-fn gen-table
+       :search-call search-call}))
+ )
 
