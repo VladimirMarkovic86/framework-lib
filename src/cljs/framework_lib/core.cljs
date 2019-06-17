@@ -130,7 +130,9 @@
                              option-el
                              option-el])
               opt-attrs {:value opt-val
-                         :title opt-title}
+                         :title (if opt-title
+                                  opt-title
+                                  opt-lbl)}
               opt-attrs (if (and data
                                  (or (and (string?
                                             data)
