@@ -29,36 +29,47 @@
   "Render uploaded image"
   [{file-id :file-id
     img-id :img-id}]
-  (let [file-field (md/query-selector
-                     (str
-                       "#"
-                       file-id))
-        file (aget
-               (.-files
-                 file-field)
-               0)
-        img (md/query-selector
-              (str
-                "#"
-                img-id))
-        fileReader (js/FileReader.)
-        onload (aset
-                 fileReader
-                 "onload"
-                 ((fn [aimg]
-                    (fn [e]
-                      (aset
-                        aimg
-                        "src"
-                        (.-result
-                          (.-target
-                            e))
+  (when (and file-id
+             (string?
+               file-id)
+             (not
+               (empty?
+                 file-id))
+         )
+    (let [file-field (md/query-selector
+                       (str
+                         "#"
+                         file-id))
+          file (aget
+                 (aget
+                   file-field
+                   "files")
+                 0)
+          img (md/query-selector
+                (str
+                  "#"
+                  img-id))
+          fileReader (js/FileReader.)
+          onload (aset
+                   fileReader
+                   "onload"
+                   ((fn [aimg]
+                      (fn [e]
+                        (aset
+                          aimg
+                          "src"
+                          (aget
+                            (aget
+                              e
+                              "target")
+                            "result"))
                        ))
-                   )
-                   img))
-        dataURL (.readAsDataURL
-                  fileReader
-                  file)])
+                     img))
+          dataURL (when file
+                    (.readAsDataURL
+                      fileReader
+                      file))]
+      dataURL))
  )
 
 (defn image-field
@@ -231,7 +242,9 @@
    & [attrs
       evts
       options]]
-  (let [input-fn (find-input-fn
+  (let [field-type (or field-type
+                       "text")
+        input-fn (find-input-fn
                    field-type
                    0)
         attrs (conj
@@ -378,7 +391,8 @@
 (defn framework-default-error
   "Framework default error function"
   [xhr]
-  (let [response (get-response xhr)
+  (let [response (get-response
+                   xhr)
         message (:message response)
         status (:status response)
         message-code (:message-code response)
@@ -553,8 +567,8 @@
          (div)])
      )
     (when (and (= current-page
-                 (dec
-                   number-of-pages))
+                  (dec
+                    number-of-pages))
                (< -1
                   (- current-page
                      2))
@@ -1075,10 +1089,12 @@
         active-element (atom nil)]
     (when (= menu-change
              entity-to-show-all)
-      (let [create-menu-item (.-nextElementSibling
-                               selected-element)
-            show-all-menu-item (.-nextElementSibling
-                                 create-menu-item)
+      (let [create-menu-item (aget
+                               selected-element
+                               "nextElementSibling")
+            show-all-menu-item (aget
+                                 create-menu-item
+                                 "nextElementSibling")
             new-selected-element (md/query-selector-on-element
                                    show-all-menu-item
                                    ":first-child")]
@@ -1095,12 +1111,15 @@
      )
     (when (= menu-change
              show-all-to-entity)
-      (let [parent-element (.-parentElement
-                             selected-element)
-            create-menu-item (.-previousElementSibling
-                               parent-element)
-            entity-menu-item (.-previousElementSibling
-                               create-menu-item)]
+      (let [parent-element (aget
+                             selected-element
+                             "parentElement")
+            create-menu-item (aget
+                               parent-element
+                               "previousElementSibling")
+            entity-menu-item (aget
+                               create-menu-item
+                               "previousElementSibling")]
         (if entity-menu-item
           (reset!
             active-element
@@ -1116,10 +1135,12 @@
         selected-element))
     (when (= menu-change
              create-to-show-all)
-      (let [parent-element (.-parentElement
-                             selected-element)
-            create-menu-item (.-nextElementSibling
-                               parent-element)
+      (let [parent-element (aget
+                             selected-element
+                             "parentElement")
+            create-menu-item (aget
+                               parent-element
+                               "nextElementSibling")
             new-selected-element (md/query-selector-on-element
                                    create-menu-item
                                    ":first-child")]
@@ -1472,7 +1493,8 @@
    current-index
    option]
   (if (< current-index
-         (count selected-cbs))
+         (count
+           selected-cbs))
     (if (= option
            (get
              selected-cbs
@@ -1490,14 +1512,18 @@
    el
    index]
   (when (< index
-           (count data))
-    (if (= (get data index)
+           (count
+             data))
+    (if (= (get
+             data
+             index)
            el)
       true
       (recur
         data
         el
-        (inc index))
+        (inc
+          index))
      ))
  )
 
@@ -1646,8 +1672,9 @@
                          (or (empty?
                                base64-image)
                              (= base64-image
-                                (.-baseURI
-                                  input-element))
+                                (aget
+                                  input-element
+                                  "baseURI"))
                           ))
                 (let [file-input (md/query-selector-on-element
                                    table-node
@@ -1683,11 +1710,13 @@
               is-valid))
           (when (= input-el
                    "select")
-            (let [selected-options-html (.-selectedOptions
-                                          input-element)
+            (let [selected-options-html (aget
+                                          input-element
+                                          "selectedOptions")
                   selected-options (atom [])
-                  range-end (.-length
-                              selected-options-html)]
+                  range-end (aget
+                              selected-options-html
+                              "length")]
               (doseq [index (range
                               range-end)]
                 (let [selected-option-html (aget
@@ -1696,8 +1725,9 @@
                   (swap!
                     selected-options
                     conj
-                    (.-value
-                      selected-option-html))
+                    (aget
+                      selected-option-html
+                      "value"))
                  ))
               (swap!
                 entity
@@ -1987,8 +2017,14 @@
 (defn insert-action
   "Insert action configuration"
   [conf]
-  (conj
-    conf
+  (if (map?
+        conf)
+    (conj
+      conf
+      {:form-type (get-label 4)
+       :action :insert
+       :action-label (get-label 10)
+       :action-fn insert-update-entity})
     {:form-type (get-label 4)
      :action :insert
      :action-label (get-label 10)
@@ -2011,8 +2047,14 @@
 (defn update-action
   "Update action configuration"
   [conf]
-  (conj
-    conf
+  (if (map?
+        conf)
+    (conj
+      conf
+      {:form-type (get-label 7)
+       :action :update 
+       :action-label (get-label 11)
+       :action-fn insert-update-entity})
     {:form-type (get-label 7)
      :action :update 
      :action-label (get-label 11)
@@ -2029,8 +2071,17 @@
 (defn edit-action
   "Edit action configuration"
   [conf]
-  (conj
-    conf
+  (if (map?
+        conf)
+    (conj
+      conf
+      {:form-type (get-label 6)
+       :disabled true
+       :action :edit
+       :action-label (get-label 7)
+       :action-fn edit-entity
+       :action-p (update-action
+                   conf)})
     {:form-type (get-label 6)
      :disabled true
      :action :edit

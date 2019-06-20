@@ -8,12 +8,15 @@
   [evt-p
    element
    event]
-  (let [is-ctrl-pressed (.-ctrlKey
-                          event)
+  (let [is-ctrl-pressed (aget
+                          event
+                          "ctrlKey")
         is-selected (cstring/index-of
-                      (.-className
-                        (.-target
-                          event))
+                      (aget
+                        (aget
+                          event
+                          "target")
+                        "className")
                       "highlightDoc")]
     (when (and (not is-selected)
                (not is-ctrl-pressed))
