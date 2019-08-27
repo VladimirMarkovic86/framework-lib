@@ -25,6 +25,18 @@
 (def is-called-read-preferences-a
      (atom false))
 
+(defn read-preferences-fn
+  "Reads preferences from database"
+  []
+  (when-not @is-called-read-preferences-a
+    (when (fn?
+            @read-preferences-a-fn)
+      (@read-preferences-a-fn)
+      (reset!
+        is-called-read-preferences-a
+        true))
+   ))
+
 (defn render-img
   "Render uploaded image"
   [{file-id :file-id
@@ -1874,7 +1886,8 @@
                       true)
                     attrs)
             evts (:evts field-conf)
-            id (name e-key)
+            id (name
+                 e-key)
             input-el (:input-el field-conf)
             options (:options field-conf)
             data (e-key entity-data)
@@ -1915,7 +1928,8 @@
           {:id "btnCancel"
            :class "btn"
            :type "button"
-           :value (get-label 12)}
+           :value (get-label
+                    12)}
           {:onclick {:evt-fn handle-selected-menu-item
                      :evt-p {:evt-fn table-fn
                              :evt-p conf
@@ -2033,6 +2047,7 @@
 (defn create-entity
   "Call generate-form function with create entity parameters"
   [conf]
+  (read-preferences-fn)
   (let [conf (if (fn?
                    conf)
                (conf)
@@ -2359,14 +2374,7 @@
    & [sl-node
       event
       search-call]]
-  (when-not @is-called-read-preferences-a
-    (when (fn?
-            @read-preferences-a-fn)
-      (@read-preferences-a-fn)
-      (reset!
-        is-called-read-preferences-a
-        true))
-   )
+  (read-preferences-fn)
   (let [conf (if (fn?
                    conf)
                (conf)
